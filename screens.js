@@ -212,36 +212,50 @@ function renderAllOrders(state) {
   const todayOrders = (state.orders || []).filter(o => o && o.time && o.time >= todayStart.getTime() && o.time <= now);
   const revenue = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const avgOrder = todayOrders.length ? Math.round(revenue / todayOrders.length) : 0;
+  const totalGST = todayOrders.reduce((s, o) => s + (Number(o.gst) || 0), 0);
+  const totalDiscount = todayOrders.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+  const cashOrders = todayOrders.filter(o => (o.payment || 'cash') === 'cash');
+  const upiOrders = todayOrders.filter(o => o.payment === 'upi');
+  const cardOrders = todayOrders.filter(o => o.payment === 'card');
+  const totalItems = todayOrders.reduce((s, o) => s + (o.items || []).reduce((a, i) => a + (Number(i.qty) || 1), 0), 0);
+
+  const payBadge = (p) => {
+    const colors = { cash: '#16a34a', upi: '#2563eb', card: '#9333ea' };
+    return `<span style="font-size:10px;background:${colors[p] || '#666'}22;color:${colors[p] || '#666'};padding:1px 6px;border-radius:4px;font-weight:700">${(p || 'cash').toUpperCase()}</span>`;
+  };
 
   return `<div class="animate-in">
     <!-- Back Button -->
-    <button id="backToDashboard" style="display:flex;align-items:center;gap:6px;padding:10px 16px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);color:var(--text);cursor:pointer;border-radius:10px;font-weight:600;font-size:13px;margin-bottom:16px;transition:all .2s">
+    <button id="backToDashboard" style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);color:var(--text);cursor:pointer;border-radius:10px;font-weight:600;font-size:13px;margin-bottom:16px;transition:all .2s">
       ← Back to Dashboard
     </button>
 
     <!-- Title -->
     <div style="margin-bottom:16px">
       <div style="font-size:22px;font-weight:800;color:var(--text)">📋 All Orders Today</div>
-      <div style="font-size:12px;color:var(--text-m);margin-top:2px">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+      <div style="font-size:12px;color:var(--text-m);margin-top:2px">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${totalItems} items served</div>
     </div>
 
     <!-- Stats Bar -->
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
       <div class="g-card" style="text-align:center;padding:14px">
-        <div style="font-size:18px;font-weight:800;color:var(--brand)">${fmt(revenue)}</div>
-        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Revenue</div>
+        <div style="font-size:20px;font-weight:800;color:var(--brand)">${fmt(revenue)}</div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Total Revenue</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">GST: ${fmt(totalGST)} · Disc: ${fmt(totalDiscount)}</div>
       </div>
       <div class="g-card" style="text-align:center;padding:14px">
-        <div style="font-size:18px;font-weight:800;color:var(--text)">${todayOrders.length}</div>
-        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Orders</div>
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${todayOrders.length}</div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Total Orders</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">Avg ${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
       </div>
       <div class="g-card" style="text-align:center;padding:14px">
-        <div style="font-size:18px;font-weight:800;color:var(--text)">${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
-        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">Avg Value</div>
-      </div>
-      <div class="g-card" style="text-align:center;padding:14px">
-        <div style="font-size:18px;font-weight:800;color:var(--text)">${todayOrders.filter(o => o.type === 'dine-in').length} / ${todayOrders.filter(o => o.type === 'takeaway').length} / ${todayOrders.filter(o => o.type === 'delivery').length}</div>
-        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:2px">🍽️ / 🥡 / 🛵</div>
+        <div style="display:flex;justify-content:center;gap:8px;font-size:13px;font-weight:700">
+          <span style="color:#16a34a">💵${cashOrders.length}</span>
+          <span style="color:#2563eb">📱${upiOrders.length}</span>
+          <span style="color:#9333ea">💳${cardOrders.length}</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Payment Split</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">🍽️${todayOrders.filter(o => (o.type || 'dine-in') === 'dine-in').length} · 🥡${todayOrders.filter(o => o.type === 'takeaway').length} · 🛵${todayOrders.filter(o => o.type === 'delivery').length}</div>
       </div>
     </div>
 
@@ -249,40 +263,60 @@ function renderAllOrders(state) {
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
       <input id="allOrdersSearch" type="text" placeholder="🔍 Search by order ID or item name..." style="flex:1;padding:10px 14px;border-radius:10px">
       <div style="display:flex;gap:4px">
-        <button class="ao-filter active" data-filter="all" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--brand);color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">All</button>
-        <button class="ao-filter" data-filter="dine-in" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🍽️ Dine-in</button>
-        <button class="ao-filter" data-filter="takeaway" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🥡 Takeaway</button>
-        <button class="ao-filter" data-filter="delivery" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🛵 Delivery</button>
+        <button class="ao-filter active" data-filter="all" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--brand);color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">All (${todayOrders.length})</button>
+        <button class="ao-filter" data-filter="dine-in" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🍽️ ${todayOrders.filter(o => (o.type || 'dine-in') === 'dine-in').length}</button>
+        <button class="ao-filter" data-filter="takeaway" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🥡 ${todayOrders.filter(o => o.type === 'takeaway').length}</button>
+        <button class="ao-filter" data-filter="delivery" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🛵 ${todayOrders.filter(o => o.type === 'delivery').length}</button>
       </div>
     </div>
 
     <!-- Orders List -->
     <div class="g-card" style="padding:0;overflow:hidden">
-      <div style="display:flex;align-items:center;padding:10px 16px;background:rgba(0,0,0,.02);border-bottom:1px solid rgba(0,0,0,.06);font-size:11px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">
-        <span style="min-width:36px">#</span>
-        <span style="min-width:32px">Type</span>
-        <span style="flex:1;margin-left:10px">Order Details</span>
-        <span style="min-width:90px;text-align:right">Amount</span>
+      <!-- Table Header -->
+      <div style="display:grid;grid-template-columns:36px 32px 1fr 70px 90px;align-items:center;padding:10px 16px;background:rgba(0,0,0,.03);border-bottom:1px solid rgba(0,0,0,.08);font-size:10px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">
+        <span>#</span>
+        <span></span>
+        <span>Order Details</span>
+        <span style="text-align:center">Payment</span>
+        <span style="text-align:right">Amount</span>
       </div>
-      ${todayOrders.map((o, idx) => `
-        <div class="ao-row" data-type="${o.type || 'dine-in'}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.04);${idx % 2 === 0 ? 'background:rgba(0,0,0,.015)' : ''};transition:background .15s">
-          <span style="font-size:11px;color:var(--text-m);min-width:36px;font-weight:600">${idx + 1}</span>
-          <span style="font-size:16px;min-width:32px">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'}</span>
-          <div style="flex:1;min-width:0;margin-left:10px">
-            <div style="display:flex;align-items:center;gap:6px">
+      ${todayOrders.map((o, idx) => {
+    const itemCount = (o.items || []).reduce((a, i) => a + (Number(i.qty) || 1), 0);
+    const gst = Number(o.gst) || 0;
+    const disc = Number(o.discount) || 0;
+    const total = Number(o.total) || 0;
+    const payment = o.payment || 'cash';
+    const type = o.type || 'dine-in';
+    const timeStr = new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    return `
+        <div class="ao-row" data-type="${type}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:grid;grid-template-columns:36px 32px 1fr 70px 90px;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.04);${idx % 2 === 0 ? 'background:rgba(0,0,0,.015)' : ''};transition:background .15s">
+          <span style="font-size:11px;color:var(--text-m);font-weight:600">${idx + 1}</span>
+          <span style="font-size:16px">${type === 'dine-in' ? '🍽️' : type === 'takeaway' ? '🥡' : '🛵'}</span>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-weight:700;font-size:13px;color:var(--text)">${o.id || '?'}</span>
-              <span style="font-size:10px;color:var(--text-m);text-transform:capitalize">${o.type || 'dine-in'}</span>
-              ${o.table ? `<span style="font-size:9px;background:rgba(0,0,0,.05);padding:1px 5px;border-radius:3px;color:var(--text-s)">T${o.table}</span>` : ''}
+              ${o.table ? `<span style="font-size:9px;background:rgba(37,99,235,.1);color:#2563eb;padding:1px 5px;border-radius:3px;font-weight:600">Table ${o.table}</span>` : ''}
+              <span style="font-size:10px;color:var(--text-m)">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+              <span style="font-size:10px;color:var(--text-m)">· ${timeStr}</span>
+              ${o.isComplimentary ? '<span style="font-size:9px;background:rgba(245,166,35,.15);color:#f5a623;padding:1px 5px;border-radius:3px;font-weight:700">COMP</span>' : ''}
             </div>
-            <div style="font-size:11px;color:var(--text-m);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
+            <div style="font-size:11px;color:var(--text-m);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
+            ${(gst > 0 || disc > 0) ? `<div style="font-size:10px;color:var(--text-m);margin-top:1px">${gst > 0 ? `GST: ${fmt(gst)}` : ''}${gst > 0 && disc > 0 ? ' · ' : ''}${disc > 0 ? `Disc: -${fmt(disc)}` : ''}</div>` : ''}
           </div>
-          <div style="text-align:right;min-width:90px">
-            <div style="font-weight:800;font-size:13px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
-            <div style="font-size:10px;color:var(--text-m);margin-top:1px">${(o.payment || 'cash').toUpperCase()} · ${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-          </div>
-        </div>
-      `).join('')}
+          <div style="text-align:center">${payBadge(payment)}</div>
+          <div style="text-align:right;font-weight:800;font-size:13px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(total)}</div>
+        </div>`;
+  }).join('')}
       ${todayOrders.length === 0 ? '<div style="padding:40px;text-align:center;color:var(--text-m)">No orders yet today</div>' : ''}
+      <!-- Footer Summary -->
+      ${todayOrders.length > 0 ? `
+      <div style="display:grid;grid-template-columns:36px 32px 1fr 70px 90px;align-items:center;padding:12px 16px;background:rgba(0,0,0,.03);border-top:2px solid rgba(0,0,0,.08);font-weight:700">
+        <span></span>
+        <span></span>
+        <span style="font-size:12px;color:var(--text)">Total: ${todayOrders.length} orders · ${totalItems} items</span>
+        <span></span>
+        <span style="text-align:right;font-size:14px;color:var(--brand)">${fmt(revenue)}</span>
+      </div>` : ''}
     </div>
   </div>`;
 }
