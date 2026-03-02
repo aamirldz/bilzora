@@ -1598,6 +1598,7 @@ function bindScreenEvents() {
 
     if (s === 'dashboard') bindDashboard();
     else if (s === 'allOrders') bindAllOrders();
+    else if (s === 'allReportOrders') bindAllReportOrders();
     else if (s === 'billing') bindBilling();
     else if (s === 'kds') bindKDS();
     else if (s === 'tables') bindTables();
@@ -1614,7 +1615,7 @@ function bindReports() {
     // Period tabs
     document.querySelectorAll('.report-tab').forEach(t => t.onclick = () => {
         state.reportPeriod = t.dataset.period;
-        state._reportWeekDay = 'all'; // reset day filter when switching tabs
+        state._reportWeekDay = 'all';
         renderScreen();
     });
 
@@ -1622,7 +1623,6 @@ function bindReports() {
     document.getElementById('reportWeekDaySelect')?.addEventListener('change', (e) => {
         state._reportWeekDay = e.target.value;
         renderScreen();
-        // Re-select the value after re-render
         const sel = document.getElementById('reportWeekDaySelect');
         if (sel) sel.value = state._reportWeekDay;
     });
@@ -1632,7 +1632,17 @@ function bindReports() {
         generateReportPDF();
     });
 
-    // ── Report Orders Search + Filter ──
+    // View All Orders → navigate to full allReportOrders screen
+    const viewAllBtn = document.getElementById('reportViewAllBtn');
+    if (viewAllBtn) viewAllBtn.onclick = () => navigate('allReportOrders');
+}
+
+function bindAllReportOrders() {
+    // Back to reports
+    const backBtn = document.getElementById('backToReports');
+    if (backBtn) backBtn.onclick = () => navigate('reports');
+
+    // Search + Filter
     let activeFilter = 'all';
     const searchInput = document.getElementById('reportOrdersSearch');
     const rows = document.querySelectorAll('.ro-row');

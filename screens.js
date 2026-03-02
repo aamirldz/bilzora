@@ -9,6 +9,7 @@ export function renderScreenContent(screen, state) {
   const renderers = {
     dashboard: renderDashboard,
     allOrders: renderAllOrders,
+    allReportOrders: renderAllReportOrders,
     billing: renderBilling,
     kds: renderKDS,
     tables: renderTables,
@@ -1074,28 +1075,128 @@ function renderReports(state) {
       </div>
     </div>
 
-    <!-- ═══ ALL ORDERS ═══ -->
-    <div class="report-section-label">All Transactions</div>
+    <!-- ═══ RECENT ORDERS (Preview) ═══ -->
+    <div class="report-section-label">Recent Transactions</div>
     <div class="card report-card" style="padding:0;overflow:hidden">
       <div class="card-header" style="padding:14px 16px;border-bottom:1px solid rgba(0,0,0,.06)"><span>📋 ${periodLabel} Orders</span><span class="card-header-sub">${filtered.length} orders · ${fmt(totalRevenue)}</span></div>
-      
-      <!-- Search + Filter -->
-      <div style="display:flex;gap:8px;align-items:center;padding:10px 16px;background:rgba(0,0,0,.015);border-bottom:1px solid rgba(0,0,0,.04)">
-        <input id="reportOrdersSearch" type="text" placeholder="🔍 Search orders..." style="flex:1;padding:8px 12px;border-radius:8px;font-size:12px">
-        <div style="display:flex;gap:4px">
-          <button class="ro-filter active" data-filter="all" style="padding:6px 12px;border-radius:6px;border:1px solid rgba(0,0,0,.08);background:var(--brand);color:#fff;font-size:10px;font-weight:700;cursor:pointer">All (${filtered.length})</button>
-          <button class="ro-filter" data-filter="dine-in" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(0,0,0,.06);background:var(--glass);color:var(--text);font-size:10px;font-weight:600;cursor:pointer">🍽️ ${filtered.filter(o => (o.type || 'dine-in') === 'dine-in').length}</button>
-          <button class="ro-filter" data-filter="takeaway" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(0,0,0,.06);background:var(--glass);color:var(--text);font-size:10px;font-weight:600;cursor:pointer">🥡 ${filtered.filter(o => o.type === 'takeaway').length}</button>
-          <button class="ro-filter" data-filter="delivery" style="padding:6px 10px;border-radius:6px;border:1px solid rgba(0,0,0,.06);background:var(--glass);color:var(--text);font-size:10px;font-weight:600;cursor:pointer">🛵 ${filtered.filter(o => o.type === 'delivery').length}</button>
+      ${recent.length === 0 ? '<div style="padding:30px;text-align:center;color:var(--text-m)">No orders in this period</div>' : recent.slice(0, 6).map((o, idx) => {
+    const t = new Date(o.time);
+    const timeStr = t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = t.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const itemCount = (o.items || []).reduce((a, i) => a + (Number(i.qty) || 1), 0);
+    const total = Number(o.total) || 0;
+    const payment = o.payment || 'cash';
+    const type = o.type || 'dine-in';
+    const payColors = { cash: '#16a34a', upi: '#2563eb', card: '#9333ea' };
+    const payCol = payColors[payment] || '#666';
+    return `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);${idx % 2 === 0 ? 'background:rgba(0,0,0,.012)' : ''}">
+        <span style="font-size:14px">${type === 'dine-in' ? '🍽️' : type === 'takeaway' ? '🥡' : '🛵'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:5px">
+            <span style="font-weight:700;font-size:12px;color:var(--text)">${o.id || '?'}</span>
+            <span style="font-size:9px;color:var(--text-m)">${itemCount} items · ${dateStr} ${timeStr}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-m);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => i.name).join(' · ') || '—'}</div>
         </div>
-      </div>
+        <span style="font-size:9px;background:${payCol}18;color:${payCol};padding:2px 5px;border-radius:4px;font-weight:700">${payment.toUpperCase()}</span>
+        <span style="font-weight:800;font-size:12px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(total)}</span>
+      </div>`;
+  }).join('')}
+      ${recent.length > 6 ? `
+        <button id="reportViewAllBtn" style="width:100%;padding:12px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);color:var(--brand);cursor:pointer;border-radius:0 0 12px 12px;font-weight:700;font-size:13px;transition:all .2s;border-top:1px solid rgba(0,0,0,.06)">
+          📋 View All ${filtered.length} Orders →
+        </button>
+      ` : ''}
+    </div>
+  </div > `;
+}
 
-      <!-- Table Header -->
-      <div style="display:grid;grid-template-columns:36px 30px 1fr 65px 50px 50px 80px;align-items:center;padding:8px 16px;background:rgba(0,0,0,.03);border-bottom:1px solid rgba(0,0,0,.08);font-size:9px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">
-        <span>#</span><span></span><span>Order Details</span><span style="text-align:center">Payment</span><span style="text-align:right">Disc</span><span style="text-align:right">GST</span><span style="text-align:right">Total</span>
-      </div>
+// ── All Report Orders Full-Screen View ──
+function renderAllReportOrders(state) {
+  const period = state.reportPeriod || 'today';
+  const DAY = 86400000;
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const now = Date.now();
+  let start, end;
+  if (period === 'today') { start = todayStart.getTime(); end = now; }
+  else if (period === 'yesterday') { start = todayStart.getTime() - DAY; end = todayStart.getTime() - 1; }
+  else if (period === 'week') { const dow = todayStart.getDay(); start = todayStart.getTime() - dow * DAY; end = now; }
+  else { const m = new Date(); m.setDate(1); m.setHours(0, 0, 0, 0); start = m.getTime(); end = now; }
 
-      ${recent.length === 0 ? '<div style="padding:30px;text-align:center;color:var(--text-m)">No orders in this period</div>' : recent.map((o, idx) => {
+  const filtered = (state.orders || []).filter(o => o && o.time >= start && o.time <= end).sort((a, b) => b.time - a.time);
+  const totalRevenue = filtered.reduce((s, o) => s + (Number(o.total) || 0), 0);
+  const totalGST = filtered.reduce((s, o) => s + (Number(o.gst) || 0), 0);
+  const totalDiscount = filtered.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+  const totalItems = filtered.reduce((s, o) => s + (o.items || []).reduce((a, i) => a + (Number(i.qty) || 1), 0), 0);
+  const avgOrder = filtered.length ? Math.round(totalRevenue / filtered.length) : 0;
+  const cashOrders = filtered.filter(o => (o.payment || 'cash') === 'cash');
+  const upiOrders = filtered.filter(o => o.payment === 'upi');
+  const cardOrders = filtered.filter(o => o.payment === 'card');
+
+  let periodLabel = 'Today';
+  if (period === 'yesterday') periodLabel = 'Yesterday';
+  else if (period === 'week') periodLabel = 'This Week';
+  else if (period === 'month') periodLabel = 'This Month';
+
+  const payBadge = (p) => {
+    const colors = { cash: '#16a34a', upi: '#2563eb', card: '#9333ea' };
+    return `<span style="font-size:9px;background:${colors[p] || '#666'}18;color:${colors[p] || '#666'};padding:2px 6px;border-radius:4px;font-weight:700">${(p || 'cash').toUpperCase()}</span>`;
+  };
+
+  return `<div class="animate-in">
+    <!-- Back Button -->
+    <button id="backToReports" style="display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);color:var(--text);cursor:pointer;border-radius:10px;font-weight:600;font-size:13px;margin-bottom:16px;transition:all .2s">
+      ← Back to Reports
+    </button>
+
+    <!-- Title -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:22px;font-weight:800;color:var(--text)">📋 ${periodLabel} — All Orders</div>
+      <div style="font-size:12px;color:var(--text-m);margin-top:2px">${filtered.length} orders · ${totalItems} items served</div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div class="g-card" style="text-align:center;padding:14px">
+        <div style="font-size:20px;font-weight:800;color:var(--brand)">${fmt(totalRevenue)}</div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Total Revenue</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">GST: ${fmt(totalGST)} · Disc: ${fmt(totalDiscount)}</div>
+      </div>
+      <div class="g-card" style="text-align:center;padding:14px">
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${filtered.length}</div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Total Orders</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">Avg ${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
+      </div>
+      <div class="g-card" style="text-align:center;padding:14px">
+        <div style="display:flex;justify-content:center;gap:8px;font-size:13px;font-weight:700">
+          <span style="color:#16a34a">💵${cashOrders.length}</span>
+          <span style="color:#2563eb">📱${upiOrders.length}</span>
+          <span style="color:#9333ea">💳${cardOrders.length}</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px;margin-top:4px">Payment Split</div>
+        <div style="font-size:10px;color:var(--text-m);margin-top:2px">🍽️${filtered.filter(o => (o.type || 'dine-in') === 'dine-in').length} · 🥡${filtered.filter(o => o.type === 'takeaway').length} · 🛵${filtered.filter(o => o.type === 'delivery').length}</div>
+      </div>
+    </div>
+
+    <!-- Search + Filter -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <input id="reportOrdersSearch" type="text" placeholder="🔍 Search by order ID or item name..." style="flex:1;padding:10px 14px;border-radius:10px">
+      <div style="display:flex;gap:4px">
+        <button class="ro-filter active" data-filter="all" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--brand);color:#fff;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s">All (${filtered.length})</button>
+        <button class="ro-filter" data-filter="dine-in" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🍽️ ${filtered.filter(o => (o.type || 'dine-in') === 'dine-in').length}</button>
+        <button class="ro-filter" data-filter="takeaway" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🥡 ${filtered.filter(o => o.type === 'takeaway').length}</button>
+        <button class="ro-filter" data-filter="delivery" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.08);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer;transition:all .15s">🛵 ${filtered.filter(o => o.type === 'delivery').length}</button>
+      </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="g-card" style="padding:0;overflow:hidden">
+      <!-- Header -->
+      <div style="display:grid;grid-template-columns:36px 32px 1fr 70px 60px 60px 85px;align-items:center;padding:10px 16px;background:rgba(0,0,0,.03);border-bottom:1px solid rgba(0,0,0,.08);font-size:10px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">
+        <span>#</span><span></span><span>Order Details</span><span style="text-align:center">Payment</span><span style="text-align:right">Discount</span><span style="text-align:right">GST</span><span style="text-align:right">Total</span>
+      </div>
+      ${filtered.map((o, idx) => {
     const t = new Date(o.time);
     const timeStr = t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     const dateStr = t.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -1105,45 +1206,43 @@ function renderReports(state) {
     const total = Number(o.total) || 0;
     const payment = o.payment || 'cash';
     const type = o.type || 'dine-in';
-    const payColors = { cash: '#16a34a', upi: '#2563eb', card: '#9333ea' };
-    const payCol = payColors[payment] || '#666';
     return `
-      <div class="ro-row" data-type="${type}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:grid;grid-template-columns:36px 30px 1fr 65px 50px 50px 80px;align-items:center;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);${idx % 2 === 0 ? 'background:rgba(0,0,0,.012)' : ''};transition:background .15s">
-        <span style="font-size:10px;color:var(--text-m);font-weight:600">${idx + 1}</span>
-        <span style="font-size:14px">${type === 'dine-in' ? '🍽️' : type === 'takeaway' ? '🥡' : '🛵'}</span>
-        <div style="min-width:0">
-          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-            <span style="font-weight:700;font-size:12px;color:var(--text)">${o.id || '?'}</span>
-            ${o.table ? `<span style="font-size:8px;background:rgba(37,99,235,.1);color:#2563eb;padding:1px 4px;border-radius:3px;font-weight:600">T${o.table}</span>` : ''}
-            <span style="font-size:9px;color:var(--text-m)">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
-            <span style="font-size:9px;color:var(--text-m)">· ${dateStr} ${timeStr}</span>
-            ${o.isComplimentary ? '<span style="font-size:8px;background:rgba(245,166,35,.15);color:#f5a623;padding:1px 4px;border-radius:3px;font-weight:700">COMP</span>' : ''}
+        <div class="ro-row" data-type="${type}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:grid;grid-template-columns:36px 32px 1fr 70px 60px 60px 85px;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,.04);${idx % 2 === 0 ? 'background:rgba(0,0,0,.015)' : ''};transition:background .15s">
+          <span style="font-size:11px;color:var(--text-m);font-weight:600">${idx + 1}</span>
+          <span style="font-size:16px">${type === 'dine-in' ? '🍽️' : type === 'takeaway' ? '🥡' : '🛵'}</span>
+          <div style="min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:700;font-size:13px;color:var(--text)">${o.id || '?'}</span>
+              ${o.table ? `<span style="font-size:9px;background:rgba(37,99,235,.1);color:#2563eb;padding:1px 5px;border-radius:3px;font-weight:600">Table ${o.table}</span>` : ''}
+              <span style="font-size:10px;color:var(--text-m)">${itemCount} item${itemCount !== 1 ? 's' : ''}</span>
+              <span style="font-size:10px;color:var(--text-m)">· ${dateStr} ${timeStr}</span>
+              ${o.isComplimentary ? '<span style="font-size:9px;background:rgba(245,166,35,.15);color:#f5a623;padding:1px 5px;border-radius:3px;font-weight:700">COMP</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text-m);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
           </div>
-          <div style="font-size:10px;color:var(--text-m);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
-        </div>
-        <div style="text-align:center"><span style="font-size:9px;background:${payCol}18;color:${payCol};padding:2px 5px;border-radius:4px;font-weight:700">${payment.toUpperCase()}</span></div>
-        <div style="text-align:right;font-size:11px;color:${disc > 0 ? 'var(--err)' : 'var(--text-m)'}">${disc > 0 ? '-' + fmt(disc) : '—'}</div>
-        <div style="text-align:right;font-size:11px;color:var(--text-m)">${gst > 0 ? fmt(gst) : '—'}</div>
-        <div style="text-align:right;font-weight:800;font-size:12px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(total)}</div>
-      </div>`;
+          <div style="text-align:center">${payBadge(payment)}</div>
+          <div style="text-align:right;font-size:11px;color:${disc > 0 ? 'var(--err)' : 'var(--text-m)'}">${disc > 0 ? '-' + fmt(disc) : '—'}</div>
+          <div style="text-align:right;font-size:11px;color:var(--text-m)">${gst > 0 ? fmt(gst) : '—'}</div>
+          <div style="text-align:right;font-weight:800;font-size:13px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(total)}</div>
+        </div>`;
   }).join('')}
-
-      <!-- Footer Summary -->
-      ${recent.length > 0 ? `
-      <div style="display:grid;grid-template-columns:36px 30px 1fr 65px 50px 50px 80px;align-items:center;padding:10px 16px;background:rgba(0,0,0,.03);border-top:2px solid rgba(0,0,0,.08);font-weight:700">
+      ${filtered.length === 0 ? '<div style="padding:40px;text-align:center;color:var(--text-m)">No orders in this period</div>' : ''}
+      <!-- Footer -->
+      ${filtered.length > 0 ? `
+      <div style="display:grid;grid-template-columns:36px 32px 1fr 70px 60px 60px 85px;align-items:center;padding:12px 16px;background:rgba(0,0,0,.03);border-top:2px solid rgba(0,0,0,.08);font-weight:700">
         <span></span><span></span>
-        <span style="font-size:11px;color:var(--text)">${filtered.length} orders · ${filtered.reduce((s, o) => s + (o.items || []).reduce((a, i) => a + (Number(i.qty) || 1), 0), 0)} items</span>
+        <span style="font-size:12px;color:var(--text)">Total: ${filtered.length} orders · ${totalItems} items</span>
         <span></span>
-        <span style="text-align:right;font-size:10px;color:var(--err)">${totalDiscount > 0 ? '-' + fmt(totalDiscount) : ''}</span>
-        <span style="text-align:right;font-size:10px;color:var(--text-m)">${fmt(totalGST)}</span>
-        <span style="text-align:right;font-size:13px;color:var(--brand)">${fmt(totalRevenue)}</span>
+        <span style="text-align:right;font-size:11px;color:var(--err)">${totalDiscount > 0 ? '-' + fmt(totalDiscount) : ''}</span>
+        <span style="text-align:right;font-size:11px;color:var(--text-m)">${fmt(totalGST)}</span>
+        <span style="text-align:right;font-size:14px;color:var(--brand)">${fmt(totalRevenue)}</span>
       </div>` : ''}
     </div>
-  </div > `;
+  </div>`;
 }
 /* ═══════════════════════════════════════════════
    CRM
-   ═══════════════════════════════════════════════ */
+   ═══════════════════════════════════════════ */
 function renderCRM() {
   return `<div class="animate-in">
     <div class="page-header">
