@@ -202,7 +202,8 @@ function runDailyReset() {
 
         // If this is a live midnight rollover (not first page load), refresh the screen
         if (savedDate !== '') {
-            syncFromD1().then(() => renderScreen()).catch(() => { });
+            syncFromD1().catch(() => { });
+            renderScreen();
         }
     } else {
         state.kotCounter = parseInt(localStorage.getItem('kcb_kotCounter') || '0');
@@ -358,7 +359,7 @@ async function syncFromD1() {
             localStorage.setItem('kcb_settings', JSON.stringify(state.settings));
         } catch { }
     }
-    renderScreen(); // Re-render with updated data
+    // Data updated in state — caller decides whether to re-render
 }
 
 /* ═══════════════════════════════════════════════
@@ -1608,23 +1609,6 @@ function bindScreenEvents() {
 }
 
 function bindReports() {
-    // Auto-sync from D1 cloud when entering reports (ensures fresh data)
-    // Only sync once every 30 seconds to prevent infinite re-render loops
-    const lastSync = state._lastReportSync || 0;
-    const now = Date.now();
-    if (now - lastSync > 30000) {
-        state._lastReportSync = now;
-        syncFromD1().then(() => {
-            // Only re-render if we're still on the reports screen
-            if (state.screen === 'reports') {
-                const container = document.getElementById('mainContent');
-                if (container) {
-                    container.innerHTML = renderScreenContent(state);
-                    bindReports(); // re-bind after content update
-                }
-            }
-        }).catch(() => { });
-    }
 
     // Period tabs
     document.querySelectorAll('.report-tab').forEach(t => t.onclick = () => {
@@ -3263,10 +3247,8 @@ function init() {
         // Start
         navigate(state.screen || 'billing');
 
-        // Async: load from D1 cloud database
-        syncFromD1().then(() => {
-            if (state.screen === 'dashboard') renderScreen();
-        });
+        // Async: load from D1 cloud database (single re-render after sync)
+        syncFromD1().then(() => renderScreen()).catch(() => { });
 
         // Start auto-sync polling (every 2 minutes)
         startAutoSync();
