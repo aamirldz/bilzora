@@ -545,6 +545,14 @@ function renderReports(state) {
   if (state.reportHistory && Array.isArray(state.reportHistory)) {
     orders = [...orders, ...state.reportHistory];
   }
+  // Deduplicate by order ID (prevents double-counting if an order exists in both sources)
+  const seen = new Set();
+  orders = orders.filter(o => {
+    if (!o || !o.id || !o.time || typeof o.time !== 'number') return false; // skip invalid orders
+    if (seen.has(o.id)) return false;
+    seen.add(o.id);
+    return true;
+  });
   // Sort by time descending
   orders.sort((a, b) => b.time - a.time);
 
@@ -579,12 +587,12 @@ function renderReports(state) {
   }
   const filtered = orders.filter(o => o.time >= periodStart && o.time <= periodEnd);
 
-  // Compute stats
-  const totalRevenue = filtered.reduce((s, o) => s + (o.total || 0), 0);
+  // Compute stats (defensive: ensure numeric values)
+  const totalRevenue = filtered.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const totalOrders = filtered.length;
   const avgValue = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
-  const totalDiscount = filtered.reduce((s, o) => s + (o.discount || 0), 0);
-  const totalGST = filtered.reduce((s, o) => s + (o.gst || 0), 0);
+  const totalDiscount = filtered.reduce((s, o) => s + (Number(o.discount) || 0), 0);
+  const totalGST = filtered.reduce((s, o) => s + (Number(o.gst) || 0), 0);
 
   // Previous period comparison
   const periodDuration = periodEnd - periodStart;

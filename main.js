@@ -156,23 +156,25 @@ if (typeof state.settings.serviceCharge !== 'number') {
 })();
 
 // Daily-resetting counters and dashboard data
-(function initDailyReset() {
+function runDailyReset() {
     const today = new Date().toDateString();
     const savedDate = localStorage.getItem('kcb_counterDate') || '';
     if (savedDate !== today) {
         // Archive yesterday's orders into reportHistory before resetting
         if (state.orders.length > 0) {
             state.reportHistory = state.reportHistory || [];
+            const existingIds = new Set(state.reportHistory.map(h => h.id));
             state.orders.forEach(o => {
-                // Avoid duplicates
-                if (!state.reportHistory.find(h => h.id === o.id)) {
+                // Only add valid orders that aren't already archived
+                if (o && o.id && o.time && !existingIds.has(o.id)) {
                     state.reportHistory.push(o);
+                    existingIds.add(o.id);
                 }
             });
             // Keep only last 90 days of history
             const ninetyDaysAgo = Date.now() - 90 * 86400000;
             state.reportHistory = state.reportHistory.filter(o => o.time >= ninetyDaysAgo);
-            localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory));
+            try { localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory)); } catch (e) { /* quota exceeded */ }
         }
 
         // New day — reset daily counters
@@ -197,11 +199,20 @@ if (typeof state.settings.serviceCharge !== 'number') {
         // Reset tables to available
         TABLES.forEach(t => { t.status = 'available'; t.guests = 0; t.amount = 0; t.occupiedSince = null; t.orderItems = []; });
         localStorage.setItem('kcb_tables', JSON.stringify(TABLES));
+
+        // If this is a live midnight rollover (not first page load), refresh the screen
+        if (savedDate !== '') {
+            syncFromD1().then(() => renderScreen()).catch(() => { });
+        }
     } else {
         state.kotCounter = parseInt(localStorage.getItem('kcb_kotCounter') || '0');
         state.billCounter = parseInt(localStorage.getItem('kcb_billCounter') || '0');
     }
-})();
+}
+// Run on page load
+runDailyReset();
+// Auto-check every 60 seconds — triggers midnight rollover even if POS stays open overnight
+setInterval(runDailyReset, 60000);
 
 // Restore table state from localStorage onto TABLES export
 (function restoreTablesFromStorage() {
@@ -298,12 +309,15 @@ async function syncFromD1() {
 
     // Split D1 orders into today vs history
     if (data.orders?.length) {
+        // Validate orders from D1
+        const validOrders = data.orders.filter(o => o && o.id && o.time && typeof o.time === 'number');
+
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
         const todayMs = todayStart.getTime();
 
-        const todayOrders = data.orders.filter(o => o.time >= todayMs);
-        const pastOrders = data.orders.filter(o => o.time < todayMs);
+        const todayOrders = validOrders.filter(o => o.time >= todayMs);
+        const pastOrders = validOrders.filter(o => o.time < todayMs);
 
         // Only load today's orders into state (don't override daily reset)
         if (todayOrders.length > state.orders.length) {
@@ -315,12 +329,14 @@ async function syncFromD1() {
         if (pastOrders.length > 0) {
             state.reportHistory = state.reportHistory || [];
             const ninetyDaysAgo = Date.now() - 90 * 86400000;
+            const existingIds = new Set(state.reportHistory.map(h => h.id));
             pastOrders.forEach(o => {
-                if (o.time >= ninetyDaysAgo && !state.reportHistory.find(h => h.id === o.id)) {
+                if (o.time >= ninetyDaysAgo && !existingIds.has(o.id)) {
                     state.reportHistory.push(o);
+                    existingIds.add(o.id);
                 }
             });
-            localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory));
+            try { localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory)); } catch (e) { /* quota exceeded */ }
         }
     }
 
@@ -1685,13 +1701,21 @@ function generateReportPDF() {
     if (state.reportHistory && Array.isArray(state.reportHistory)) {
         orders = [...orders, ...state.reportHistory];
     }
+    // Deduplicate by order ID and validate
+    const seen = new Set();
+    orders = orders.filter(o => {
+        if (!o || !o.id || !o.time || typeof o.time !== 'number') return false;
+        if (seen.has(o.id)) return false;
+        seen.add(o.id);
+        return true;
+    });
     orders.sort((a, b) => b.time - a.time);
 
     const filtered = orders.filter(o => o.time >= periodStart && o.time <= periodEnd);
-    const totalRevenue = filtered.reduce((s, o) => s + (o.total || 0), 0);
+    const totalRevenue = filtered.reduce((s, o) => s + (Number(o.total) || 0), 0);
     const totalOrders = filtered.length;
     const avgValue = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
-    const totalDiscount = filtered.reduce((s, o) => s + (o.discount || 0), 0);
+    const totalDiscount = filtered.reduce((s, o) => s + (Number(o.discount) || 0), 0);
     const totalGST = filtered.reduce((s, o) => s + (o.gst || 0), 0);
     const totalSubtotal = filtered.reduce((s, o) => s + (o.subtotal || 0), 0);
 
