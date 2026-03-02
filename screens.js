@@ -44,18 +44,35 @@ function renderDashboard(state) {
   const ordGrowth = yestOrders.length > 0 ? Math.round((todayOrders.length - yestOrders.length) / yestOrders.length * 100) : 0;
   const avgGrowth = yestAvg > 0 ? Math.round((avgOrder - yestAvg) / yestAvg * 100) : 0;
 
-  // Hourly data
-  const hours = Array.from({ length: 16 }, (_, i) => i + 8);
-  const hourlyData = hours.map(h => {
-    const amt = todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + (Number(o.total) || 0), 0);
-    return { h, amt };
+  // Pre-compute all stats in a single pass (O(n) instead of O(n * 16))
+  const hourlyBuckets = new Array(24).fill(0);
+  const hourlyOrderCounts = new Array(24).fill(0);
+  let totalGST = 0, totalDiscount = 0, totalSubtotal = 0;
+  const paymentTotals = {};
+  todayOrders.forEach(o => {
+    const h = new Date(o.time).getHours();
+    hourlyBuckets[h] += (Number(o.total) || 0);
+    hourlyOrderCounts[h] += 1;
+    totalGST += (Number(o.gst) || 0);
+    totalDiscount += (Number(o.discount) || 0);
+    totalSubtotal += (Number(o.subtotal) || 0);
+    const pm = (o.payment || 'cash').toLowerCase();
+    paymentTotals[pm] = (paymentTotals[pm] || 0) + (Number(o.total) || 0);
   });
+
+  // Hourly chart data (8am to 11pm)
+  const hours = Array.from({ length: 16 }, (_, i) => i + 8);
+  const hourlyData = hours.map(h => ({ h, amt: hourlyBuckets[h] }));
   const maxHourly = Math.max(...hourlyData.map(d => d.amt), 1);
+
+  // Peak hour
+  let peakHour = 8, peakAmt = 0;
+  hours.forEach(h => { if (hourlyBuckets[h] > peakAmt) { peakAmt = hourlyBuckets[h]; peakHour = h; } });
 
   // Real sparkline: last 7 hours of revenue
   const curHour = new Date().getHours();
   const sparkHours = Array.from({ length: 7 }, (_, i) => curHour - 6 + i).filter(h => h >= 0);
-  const sparkVals = sparkHours.map(h => todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + (Number(o.total) || 0), 0));
+  const sparkVals = sparkHours.map(h => hourlyBuckets[h] || 0);
   const maxSpark = Math.max(...sparkVals, 1);
 
   return `<div class="animate-in">
@@ -65,7 +82,7 @@ function renderDashboard(state) {
       <span class="live-badge">🔴 LIVE</span>
       <div class="ticker-scroll-area">
         ${todayOrders.length > 0
-      ? todayOrders.slice(0, 6).map(o => `<span class="ticker-item"><strong>${o.id}</strong> ${o.type} ${fmt(o.total)} — ${timeAgo(Date.now() - o.time)}</span>`).join('  •  ')
+      ? todayOrders.slice(0, 6).map(o => `<span class="ticker-item"><strong>${o.id || '?'}</strong> ${o.type || 'dine-in'} ${fmt(Number(o.total) || 0)} — ${timeAgo(Date.now() - o.time)}</span>`).join('  •  ')
       : '<span class="ticker-item">No orders yet today. Start taking orders!</span>'}
       </div>
     </div>
@@ -76,6 +93,7 @@ function renderDashboard(state) {
         <div class="stat-card-header"><span class="stat-icon">💰</span>${revGrowth !== 0 ? `<span class="stat-badge ${revGrowth >= 0 ? 'up' : 'down'}">${revGrowth >= 0 ? '↑' : '↓'} ${Math.abs(revGrowth)}%</span>` : ''}</div>
         <div class="stat-value">${fmt(revenue)}</div>
         <div class="stat-label">Today's Revenue</div>
+        <div class="stat-sub">GST: ${fmt(totalGST)} · Disc: ${fmt(totalDiscount)}</div>
         <div class="stat-sparkline">${sparkVals.map(v => `<div class="spark-bar" data-h="${Math.round(v / maxSpark * 28)}"></div>`).join('')}</div>
       </div>
       <div class="stat-card">
@@ -112,7 +130,7 @@ function renderDashboard(state) {
     <div class="dashboard-grid-2">
       <!-- Hourly Revenue -->
       <div class="card">
-        <div class="card-header"><span>📊 Hourly Revenue</span><span class="card-badge">Today</span></div>
+        <div class="card-header"><span>📊 Hourly Revenue</span><span class="card-badge">${peakAmt > 0 ? '⚡ Peak: ' + peakHour + 'h' : 'Today'}</span></div>
         <div class="hourly-chart">
           ${hourlyData.map(d => `
             <div class="hchart-col">
