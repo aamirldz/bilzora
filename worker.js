@@ -138,9 +138,8 @@ async function handleAPI(url, request, env) {
             return new Response(JSON.stringify({ ok: true, synced: true }), { headers });
         }
 
-        // ── RESET (clear all orders + running for production) ──
+        // ── RESET (clear running orders + counter only — orders are preserved for reports) ──
         if (path === '/api/reset' && method === 'DELETE') {
-            await env.DB.prepare('DELETE FROM orders').run();
             await env.DB.prepare('DELETE FROM running_orders').run();
             await env.DB.prepare("DELETE FROM settings WHERE key = 'orderCounter'").run();
             return new Response(JSON.stringify({ ok: true, reset: true }), { headers });

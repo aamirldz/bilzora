@@ -2,14 +2,13 @@ import { CATEGORIES, MENU_ITEMS, TABLES, CUSTOMERS, STAFF, INVENTORY, MODIFIERS,
 import { renderScreenContent } from './screens.js';
 
 // One-time migration: clear old stale/demo data from previous deploys
-if (!localStorage.getItem('kcb_v5_clean')) {
-    ['kcb_kds', 'kcb_orders', 'kcb_running', 'kcb_kotHistory', 'kcb_reportHistory',
+if (!localStorage.getItem('kcb_v6_clean')) {
+    ['kcb_kds', 'kcb_orders', 'kcb_running', 'kcb_kotHistory',
         'kcb_staffData', 'kcb_customerData', 'kcb_inventoryData', 'kcb_counterDate',
         'kcb_orderCounter', 'kcb_cart', 'kcb_tables', 'kcb_kotCounter', 'kcb_billCounter'
     ].forEach(k => localStorage.removeItem(k));
-    localStorage.setItem('kcb_v5_clean', '1');
-    // Also clear old demo data from D1 cloud database
-    fetch('/api/reset', { method: 'DELETE' }).catch(() => { });
+    localStorage.setItem('kcb_v6_clean', '1');
+    // NOTE: Do NOT call /api/reset here — it wipes all D1 orders and destroys report history
 }
 
 /* ═══════════════════════════════════════════════
