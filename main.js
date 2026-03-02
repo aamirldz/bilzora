@@ -1893,7 +1893,7 @@ function bindDashboard() {
     const viewMoreBtn = document.getElementById('dashboardViewMoreBtn');
     const modal = document.getElementById('allOrdersModal');
     const closeBtn = document.getElementById('closeAllOrdersModal');
-    if (viewMoreBtn && modal) viewMoreBtn.onclick = () => { modal.style.display = 'block'; };
+    if (viewMoreBtn && modal) viewMoreBtn.onclick = () => { modal.style.display = 'block'; modal.scrollTop = 0; };
     if (closeBtn && modal) closeBtn.onclick = () => { modal.style.display = 'none'; };
 
     // Search + Filter
