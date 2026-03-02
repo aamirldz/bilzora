@@ -186,14 +186,32 @@ function renderDashboard(state) {
         <div class="recent-orders-list">
           ${todayOrders.length > 0 ? todayOrders.slice(0, 6).map(o => `
             <div class="recent-order-row">
-              <span class="order-type-chip ${o.type}">${o.type === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type}</span>
-              <div class="recent-order-info"><span class="recent-order-id">${o.id}</span></div>
-              <div class="recent-order-total ${o.isComplimentary ? 'comp' : ''}">${o.isComplimentary ? 'COMP' : fmt(o.total)}</div>
-              <span class="recent-order-payment">${o.payment?.toUpperCase() || 'CASH'}</span>
+              <span class="order-type-chip ${o.type || 'dine-in'}">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type || 'dine-in'}</span>
+              <div class="recent-order-info"><span class="recent-order-id">${o.id || '?'}</span>${o.items ? `<span style="opacity:.5;font-size:11px;margin-left:4px">${o.items.length} items</span>` : ''}</div>
+              <div class="recent-order-total ${o.isComplimentary ? 'comp' : ''}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
+              <span class="recent-order-payment">${(o.payment || 'cash').toUpperCase()}</span>
               <span class="recent-order-time">${timeAgo(Date.now() - o.time)}</span>
             </div>
           `).join('') : '<div style="padding:20px;text-align:center;color:#999;">No orders yet today. Start taking orders!</div>'}
         </div>
+        ${todayOrders.length > 6 ? `
+          <div id="dashboardMoreOrders" style="display:none">
+            <div class="recent-orders-list">
+              ${todayOrders.slice(6).map(o => `
+                <div class="recent-order-row">
+                  <span class="order-type-chip ${o.type || 'dine-in'}">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type || 'dine-in'}</span>
+                  <div class="recent-order-info"><span class="recent-order-id">${o.id || '?'}</span>${o.items ? `<span style="opacity:.5;font-size:11px;margin-left:4px">${o.items.length} items</span>` : ''}</div>
+                  <div class="recent-order-total ${o.isComplimentary ? 'comp' : ''}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
+                  <span class="recent-order-payment">${(o.payment || 'cash').toUpperCase()}</span>
+                  <span class="recent-order-time">${timeAgo(Date.now() - o.time)}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <button id="dashboardViewMoreBtn" style="width:100%;padding:10px;border:none;background:var(--bg-secondary);color:var(--brand-gold);cursor:pointer;border-radius:0 0 12px 12px;font-weight:600;font-size:13px;transition:background .2s">
+            📋 View All ${todayOrders.length} Orders
+          </button>
+        ` : ''}
       </div>
     </div>
   </div>`;

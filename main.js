@@ -1888,6 +1888,17 @@ function generateReportPDF() {
 
 function bindDashboard() {
     document.querySelectorAll('.quick-action-btn').forEach(b => b.onclick = () => navigate(b.dataset.goto));
+
+    // View More orders toggle
+    const viewMoreBtn = document.getElementById('dashboardViewMoreBtn');
+    const moreOrders = document.getElementById('dashboardMoreOrders');
+    if (viewMoreBtn && moreOrders) {
+        viewMoreBtn.onclick = () => {
+            const isHidden = moreOrders.style.display === 'none';
+            moreOrders.style.display = isHidden ? 'block' : 'none';
+            viewMoreBtn.textContent = isHidden ? '↑ Show Less' : `📋 View All Orders`;
+        };
+    }
 }
 
 function bindBilling() {
