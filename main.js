@@ -1596,7 +1596,17 @@ function bindReports() {
     // Period tabs
     document.querySelectorAll('.report-tab').forEach(t => t.onclick = () => {
         state.reportPeriod = t.dataset.period;
+        state._reportWeekDay = 'all'; // reset day filter when switching tabs
         renderScreen();
+    });
+
+    // Week day selector
+    document.getElementById('reportWeekDaySelect')?.addEventListener('change', (e) => {
+        state._reportWeekDay = e.target.value;
+        renderScreen();
+        // Re-select the value after re-render
+        const sel = document.getElementById('reportWeekDaySelect');
+        if (sel) sel.value = state._reportWeekDay;
     });
 
     // Download PDF
@@ -1610,6 +1620,13 @@ function generateReportPDF() {
     const now = Date.now();
     const DAY = 86400000;
     let periodStart, periodEnd, reportTitle, fileName;
+
+    // Midnight-based boundaries
+    const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+    const yesterdayMidnight = new Date(todayMidnight.getTime() - DAY);
+    const dayOfWeek = todayMidnight.getDay();
+    const sundayMidnight = new Date(todayMidnight.getTime() - dayOfWeek * DAY);
+    const saturdayEnd = new Date(sundayMidnight.getTime() + 7 * DAY - 1);
 
     if (period === 'month') {
         // Check month selector
@@ -1626,12 +1643,30 @@ function generateReportPDF() {
         }
         fileName = `KCB-Monthly-Report-${reportTitle.replace(/\s/g, '-')}`;
     } else if (period === 'week') {
-        periodStart = now - 7 * DAY;
-        periodEnd = now;
-        reportTitle = `Weekly Report — ${new Date(periodStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} to ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-        fileName = `KCB-Weekly-Report-${new Date().toISOString().split('T')[0]}`;
+        // Check if a specific day is selected
+        const weekDaySelect = document.getElementById('reportWeekDaySelect');
+        const selectedDay = weekDaySelect?.value || state._reportWeekDay || 'all';
+        if (selectedDay !== 'all') {
+            const dayIdx = parseInt(selectedDay);
+            periodStart = sundayMidnight.getTime() + dayIdx * DAY;
+            periodEnd = periodStart + DAY - 1;
+            const dayDate = new Date(periodStart);
+            const dayName = dayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            reportTitle = `Daily Report — ${dayName}`;
+            fileName = `KCB-Day-Report-${dayDate.toISOString().split('T')[0]}`;
+        } else {
+            periodStart = sundayMidnight.getTime();
+            periodEnd = Math.min(saturdayEnd.getTime(), now);
+            reportTitle = `Weekly Report — ${sundayMidnight.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} to ${new Date(saturdayEnd).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`;
+            fileName = `KCB-Weekly-Report-${new Date().toISOString().split('T')[0]}`;
+        }
+    } else if (period === 'yesterday') {
+        periodStart = yesterdayMidnight.getTime();
+        periodEnd = todayMidnight.getTime() - 1;
+        reportTitle = `Yesterday’s Report — ${new Date(yesterdayMidnight).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+        fileName = `KCB-Yesterday-Report-${new Date(yesterdayMidnight).toISOString().split('T')[0]}`;
     } else {
-        periodStart = now - DAY;
+        periodStart = todayMidnight.getTime();
         periodEnd = now;
         reportTitle = `Daily Report — ${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
         fileName = `KCB-Daily-Report-${new Date().toISOString().split('T')[0]}`;
@@ -1822,7 +1857,7 @@ function generateReportPDF() {
         const a = document.createElement('a');
         a.href = url; a.download = `${fileName}.png`; a.click();
         URL.revokeObjectURL(url);
-        notify(`📄 ${period === 'today' ? 'Daily' : period === 'week' ? 'Weekly' : 'Monthly'} report downloaded`);
+        notify(`📄 ${period === 'today' ? 'Daily' : period === 'yesterday' ? 'Yesterday\'s' : period === 'week' ? 'Weekly' : 'Monthly'} report downloaded`);
     }, 'image/png');
 }
 

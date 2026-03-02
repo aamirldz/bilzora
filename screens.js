@@ -548,11 +548,36 @@ function renderReports(state) {
   // Sort by time descending
   orders.sort((a, b) => b.time - a.time);
 
-  // Filter by period
-  const periodStart = period === 'today' ? now - DAY
-    : period === 'week' ? now - 7 * DAY
-      : now - 30 * DAY;
-  const filtered = orders.filter(o => o.time >= periodStart);
+  // ── Compute period boundaries (midnight-based) ──
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const yesterdayMidnight = new Date(todayMidnight.getTime() - DAY);
+  // Running week: Sunday 00:00 → Saturday 23:59:59
+  const dayOfWeek = todayMidnight.getDay(); // 0 = Sunday
+  const sundayMidnight = new Date(todayMidnight.getTime() - dayOfWeek * DAY);
+  const saturdayEnd = new Date(sundayMidnight.getTime() + 7 * DAY - 1);
+
+  let periodStart, periodEnd;
+  if (period === 'today') {
+    periodStart = todayMidnight.getTime();
+    periodEnd = now;
+  } else if (period === 'yesterday') {
+    periodStart = yesterdayMidnight.getTime();
+    periodEnd = todayMidnight.getTime() - 1;
+  } else if (period === 'week') {
+    const selectedWeekDay = state._reportWeekDay || 'all';
+    if (selectedWeekDay !== 'all') {
+      const dayIdx = parseInt(selectedWeekDay);
+      periodStart = sundayMidnight.getTime() + dayIdx * DAY;
+      periodEnd = periodStart + DAY - 1;
+    } else {
+      periodStart = sundayMidnight.getTime();
+      periodEnd = Math.min(saturdayEnd.getTime(), now);
+    }
+  } else {
+    periodStart = now - 30 * DAY;
+    periodEnd = now;
+  }
+  const filtered = orders.filter(o => o.time >= periodStart && o.time <= periodEnd);
 
   // Compute stats
   const totalRevenue = filtered.reduce((s, o) => s + (o.total || 0), 0);
@@ -562,9 +587,8 @@ function renderReports(state) {
   const totalGST = filtered.reduce((s, o) => s + (o.gst || 0), 0);
 
   // Previous period comparison
-  const prevStart = period === 'today' ? periodStart - DAY
-    : period === 'week' ? periodStart - 7 * DAY
-      : periodStart - 30 * DAY;
+  const periodDuration = periodEnd - periodStart;
+  const prevStart = periodStart - periodDuration - 1;
   const prevFiltered = orders.filter(o => o.time >= prevStart && o.time < periodStart);
   const prevRevenue = prevFiltered.reduce((s, o) => s + (o.total || 0), 0);
   const growth = prevRevenue > 0 ? Math.round((totalRevenue - prevRevenue) / prevRevenue * 100) : 0;
@@ -593,21 +617,33 @@ function renderReports(state) {
 
   // Revenue trend
   let trendLabels = [], trendValues = [];
-  if (period === 'today') {
+  if (period === 'today' || period === 'yesterday') {
+    const baseDate = period === 'yesterday' ? new Date(yesterdayMidnight) : new Date(todayMidnight);
     for (let h = 8; h <= 23; h++) {
-      const hStart = new Date(); hStart.setHours(h, 0, 0, 0);
-      const hEnd = new Date(); hEnd.setHours(h + 1, 0, 0, 0);
+      const hStart = new Date(baseDate); hStart.setHours(h, 0, 0, 0);
+      const hEnd = new Date(baseDate); hEnd.setHours(h + 1, 0, 0, 0);
       trendLabels.push(`${h} h`);
       trendValues.push(filtered.filter(o => o.time >= hStart.getTime() && o.time < hEnd.getTime()).reduce((s, o) => s + (o.total || 0), 0));
     }
   } else if (period === 'week') {
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    for (let d = 6; d >= 0; d--) {
-      const dStart = now - d * DAY;
-      const dEnd = dStart + DAY;
-      const dt = new Date(dStart);
-      trendLabels.push(dayNames[dt.getDay()]);
-      trendValues.push(filtered.filter(o => o.time >= dStart && o.time < dEnd).reduce((s, o) => s + (o.total || 0), 0));
+    const selectedWeekDay = state._reportWeekDay || 'all';
+    if (selectedWeekDay !== 'all') {
+      // Single day selected — show hourly trend like Today/Yesterday
+      const baseDate = new Date(periodStart);
+      for (let h = 8; h <= 23; h++) {
+        const hStart = new Date(baseDate); hStart.setHours(h, 0, 0, 0);
+        const hEnd = new Date(baseDate); hEnd.setHours(h + 1, 0, 0, 0);
+        trendLabels.push(`${h} h`);
+        trendValues.push(filtered.filter(o => o.time >= hStart.getTime() && o.time < hEnd.getTime()).reduce((s, o) => s + (o.total || 0), 0));
+      }
+    } else {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let d = 0; d < 7; d++) {
+        const dStart = sundayMidnight.getTime() + d * DAY;
+        const dEnd = dStart + DAY;
+        trendLabels.push(dayNames[d]);
+        trendValues.push(filtered.filter(o => o.time >= dStart && o.time < dEnd).reduce((s, o) => s + (o.total || 0), 0));
+      }
     }
   } else {
     for (let d = 29; d >= 0; d--) {
@@ -631,7 +667,17 @@ function renderReports(state) {
   // Recent orders
   const recent = filtered.slice(0, 10);
 
-  const periodLabel = period === 'today' ? 'Today' : period === 'week' ? 'This Week' : 'This Month';
+  // Period label
+  let periodLabel;
+  if (period === 'today') periodLabel = 'Today';
+  else if (period === 'yesterday') periodLabel = 'Yesterday';
+  else if (period === 'week') {
+    const selDay = state._reportWeekDay || 'all';
+    if (selDay !== 'all') {
+      const dayDate = new Date(periodStart);
+      periodLabel = dayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+    } else { periodLabel = 'This Week (Sun–Sat)'; }
+  } else periodLabel = 'This Month';
 
   // Category breakdown
   const catRevenue = {};
@@ -642,6 +688,15 @@ function renderReports(state) {
   const catEntries = Object.entries(catRevenue).sort((a, b) => b[1] - a[1]);
   const maxCatRev = catEntries.length ? catEntries[0][1] : 1;
   const catColors = ['#e63946', '#f5a623', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#e74c3c'];
+
+  // Week day options for dropdown
+  const weekDayOptions = [];
+  const dayFullNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  for (let d = 0; d < 7; d++) {
+    const dayDate = new Date(sundayMidnight.getTime() + d * DAY);
+    const dayLabel = `${dayFullNames[d]}, ${dayDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+    weekDayOptions.push({ value: d, label: dayLabel });
+  }
 
   // Month options for download
   const monthOptions = [];
@@ -654,13 +709,24 @@ function renderReports(state) {
   const netAfterGST = totalRevenue - totalGST;
 
   // Date range label
-  const dateRangeLabel = period === 'today'
-    ? new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    : period === 'week'
-      ? `${new Date(now - 6 * DAY).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} `
-      : `${new Date(now - 29 * DAY).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} `;
+  let dateRangeLabel;
+  if (period === 'today') {
+    dateRangeLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  } else if (period === 'yesterday') {
+    dateRangeLabel = new Date(yesterdayMidnight).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  } else if (period === 'week') {
+    const selDay = state._reportWeekDay || 'all';
+    if (selDay !== 'all') {
+      const dayDate = new Date(periodStart);
+      dateRangeLabel = dayDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    } else {
+      dateRangeLabel = `${sundayMidnight.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })} – ${new Date(saturdayEnd).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}`;
+    }
+  } else {
+    dateRangeLabel = `${new Date(now - 29 * DAY).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  }
 
-  const downloadLabel = period === 'today' ? 'Today\'s Report' : period === 'week' ? 'Weekly Report' : 'Monthly Report';
+  const downloadLabel = period === 'today' ? 'Today\'s Report' : period === 'yesterday' ? 'Yesterday\'s Report' : period === 'week' ? 'Weekly Report' : 'Monthly Report';
 
   return `<div class="animate-in">
     <button class="back-to-settings-btn" data-goto="settings">← Back to Settings</button>
@@ -672,11 +738,16 @@ function renderReports(state) {
       </div>
       <div class="report-header-right">
         <div class="report-tabs">
+          <button class="report-tab ${period === 'yesterday' ? 'active' : ''}" data-period="yesterday">Yesterday</button>
           <button class="report-tab ${period === 'today' ? 'active' : ''}" data-period="today">Today</button>
           <button class="report-tab ${period === 'week' ? 'active' : ''}" data-period="week">This Week</button>
           <button class="report-tab ${period === 'month' ? 'active' : ''}" data-period="month">This Month</button>
         </div>
         <div class="report-download-group">
+          ${period === 'week' ? `<select id="reportWeekDaySelect" class="report-month-select">
+            <option value="all">All Week (Sun–Sat)</option>
+            ${weekDayOptions.map(d => `<option value="${d.value}">${d.label}</option>`).join('')}
+          </select>` : ''}
           ${period === 'month' ? `<select id="reportMonthSelect" class="report-month-select">
             ${monthOptions.map(m => `<option value="${m.value}">${m.label}</option>`).join('')}
           </select>` : ''}
