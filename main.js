@@ -1631,6 +1631,34 @@ function bindReports() {
     document.getElementById('downloadReportBtn')?.addEventListener('click', () => {
         generateReportPDF();
     });
+
+    // ── Report Orders Search + Filter ──
+    let activeFilter = 'all';
+    const searchInput = document.getElementById('reportOrdersSearch');
+    const rows = document.querySelectorAll('.ro-row');
+
+    function applyFilters() {
+        const q = (searchInput?.value || '').toLowerCase().trim();
+        rows.forEach(r => {
+            const matchType = activeFilter === 'all' || r.dataset.type === activeFilter;
+            const matchSearch = !q || (r.dataset.search || '').includes(q);
+            r.style.display = (matchType && matchSearch) ? 'grid' : 'none';
+        });
+    }
+
+    if (searchInput) searchInput.oninput = applyFilters;
+
+    document.querySelectorAll('.ro-filter').forEach(btn => {
+        btn.onclick = () => {
+            activeFilter = btn.dataset.filter;
+            document.querySelectorAll('.ro-filter').forEach(b => {
+                const isActive = b.dataset.filter === activeFilter;
+                b.style.background = isActive ? 'var(--brand)' : 'var(--glass)';
+                b.style.color = isActive ? '#fff' : 'var(--text)';
+            });
+            applyFilters();
+        };
+    });
 }
 
 function generateReportPDF() {
