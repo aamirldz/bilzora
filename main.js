@@ -1609,12 +1609,21 @@ function bindScreenEvents() {
 
 function bindReports() {
     // Auto-sync from D1 cloud when entering reports (ensures fresh data)
-    if (!state._reportsSyncing) {
-        state._reportsSyncing = true;
+    // Only sync once every 30 seconds to prevent infinite re-render loops
+    const lastSync = state._lastReportSync || 0;
+    const now = Date.now();
+    if (now - lastSync > 30000) {
+        state._lastReportSync = now;
         syncFromD1().then(() => {
-            state._reportsSyncing = false;
-            renderScreen();
-        }).catch(() => { state._reportsSyncing = false; });
+            // Only re-render if we're still on the reports screen
+            if (state.screen === 'reports') {
+                const container = document.getElementById('mainContent');
+                if (container) {
+                    container.innerHTML = renderScreenContent(state);
+                    bindReports(); // re-bind after content update
+                }
+            }
+        }).catch(() => { });
     }
 
     // Period tabs
