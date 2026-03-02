@@ -1899,6 +1899,48 @@ function bindDashboard() {
             viewMoreBtn.textContent = isHidden ? '↑ Show Less' : `📋 View All Orders`;
         };
     }
+
+    // ── Real-time auto-refresh every 15 seconds ──
+    // Only re-renders if data actually changed (smart diff)
+    if (state._dashboardTimer) clearInterval(state._dashboardTimer);
+    let lastOrderCount = (state.orders || []).length;
+    let lastTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
+    state._dashboardTimer = setInterval(() => {
+        // Stop if we left the dashboard
+        if (state.screen !== 'dashboard') {
+            clearInterval(state._dashboardTimer);
+            state._dashboardTimer = null;
+            return;
+        }
+        // Only refresh if something changed
+        const curCount = (state.orders || []).length;
+        const curTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
+        if (curCount !== lastOrderCount || curTotal !== lastTotal) {
+            lastOrderCount = curCount;
+            lastTotal = curTotal;
+            // Remember View More state
+            const wasExpanded = document.getElementById('dashboardMoreOrders')?.style.display === 'block';
+            // Re-render dashboard content
+            const container = document.getElementById('screenContainer');
+            if (container) {
+                container.innerHTML = renderScreenContent(state.screen, state);
+                bindDashboard();
+                // Restore View More state
+                if (wasExpanded) {
+                    const more = document.getElementById('dashboardMoreOrders');
+                    const btn = document.getElementById('dashboardViewMoreBtn');
+                    if (more) more.style.display = 'block';
+                    if (btn) btn.textContent = '↑ Show Less';
+                }
+                // Re-animate bars
+                requestAnimationFrame(() => {
+                    document.querySelectorAll('.chart-bar').forEach(b => { b.style.height = b.dataset.height + 'px'; });
+                    document.querySelectorAll('.spark-bar').forEach(b => { b.style.height = b.dataset.h + 'px'; });
+                    document.querySelectorAll('.top-item-bar').forEach(b => { b.style.width = b.dataset.width + '%'; });
+                });
+            }
+        }
+    }, 15000);
 }
 
 function bindBilling() {

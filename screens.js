@@ -725,14 +725,17 @@ function renderReports(state) {
     } else { periodLabel = 'This Week (Sun–Sat)'; }
   } else periodLabel = 'This Month';
 
-  // Category breakdown
+  // Category breakdown — show ALL categories (even with ₹0)
   const catRevenue = {};
+  // Initialize all categories from CATEGORIES (skip 'all')
+  CATEGORIES.filter(c => c.id !== 'all').forEach(c => { catRevenue[c.id] = 0; });
+  // Add actual revenue from orders
   filtered.forEach(o => (o.items || []).forEach(i => {
     const cat = i.category || 'other';
-    catRevenue[cat] = (catRevenue[cat] || 0) + (i.price || 0) * (i.qty || 1);
+    catRevenue[cat] = (catRevenue[cat] || 0) + (Number(i.price) || 0) * (Number(i.qty) || 1);
   }));
   const catEntries = Object.entries(catRevenue).sort((a, b) => b[1] - a[1]);
-  const maxCatRev = catEntries.length ? catEntries[0][1] : 1;
+  const maxCatRev = catEntries.length ? Math.max(catEntries[0][1], 1) : 1;
   const catColors = ['#e63946', '#f5a623', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#e74c3c'];
 
   // Week day options for dropdown
