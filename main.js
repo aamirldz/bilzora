@@ -1919,8 +1919,8 @@ function bindDashboard() {
             activeFilter = btn.dataset.filter;
             document.querySelectorAll('.ao-filter').forEach(b => {
                 const isActive = b.dataset.filter === activeFilter;
-                b.style.background = isActive ? 'var(--brand-gold)' : 'var(--bg-tertiary)';
-                b.style.color = isActive ? '#000' : 'var(--text-primary)';
+                b.style.background = isActive ? 'var(--brand)' : 'var(--glass)';
+                b.style.color = isActive ? '#fff' : 'var(--text)';
             });
             applyFilters();
         };

@@ -202,47 +202,47 @@ function renderDashboard(state) {
       </div>
 
     <!-- All Orders Modal (hidden by default) -->
-    <div id="allOrdersModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);overflow-y:auto">
-      <div style="max-width:800px;margin:0 auto;min-height:100vh;background:var(--bg-primary);position:relative">
+    <div id="allOrdersModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);overflow-y:auto">
+      <div style="max-width:800px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative">
 
         <!-- Sticky Header -->
-        <div style="position:sticky;top:0;z-index:10;background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 20px">
+        <div style="position:sticky;top:0;z-index:10;background:var(--glass-s);backdrop-filter:var(--frost);border-bottom:1px solid rgba(0,0,0,.08);padding:16px 20px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <div>
-              <div style="font-size:20px;font-weight:800;letter-spacing:-.3px">📋 All Orders Today</div>
-              <div style="font-size:12px;opacity:.5;margin-top:2px">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div style="font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.3px">📋 All Orders Today</div>
+              <div style="font-size:12px;color:var(--text-m);margin-top:2px">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
             </div>
-            <button id="closeAllOrdersModal" style="background:var(--bg-tertiary);border:none;color:var(--text-primary);font-size:18px;cursor:pointer;padding:8px 14px;border-radius:10px;font-weight:700;transition:all .2s">✕</button>
+            <button id="closeAllOrdersModal" style="background:rgba(0,0,0,.06);border:none;color:var(--text);font-size:18px;cursor:pointer;padding:8px 14px;border-radius:10px;font-weight:700;transition:all .2s">✕</button>
           </div>
 
           <!-- Stats Bar -->
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
-            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
-              <div style="font-size:16px;font-weight:800;color:var(--brand-gold)">${fmt(revenue)}</div>
-              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
+            <div style="background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:var(--brand)">${fmt(revenue)}</div>
+              <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">Revenue</div>
             </div>
-            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
-              <div style="font-size:16px;font-weight:800">${todayOrders.length}</div>
-              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Orders</div>
+            <div style="background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:var(--text)">${todayOrders.length}</div>
+              <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">Orders</div>
             </div>
-            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
-              <div style="font-size:16px;font-weight:800">${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
-              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Avg Value</div>
+            <div style="background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:var(--text)">${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
+              <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">Avg Value</div>
             </div>
-            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
-              <div style="font-size:16px;font-weight:800">${todayOrders.filter(o => o.type === 'dine-in').length}/${todayOrders.filter(o => o.type === 'takeaway').length}/${todayOrders.filter(o => o.type === 'delivery').length}</div>
-              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">🍽️/🥡/🛵</div>
+            <div style="background:var(--glass);backdrop-filter:var(--frost-light);border:1px solid var(--glass-border);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:var(--text)">${todayOrders.filter(o => o.type === 'dine-in').length}/${todayOrders.filter(o => o.type === 'takeaway').length}/${todayOrders.filter(o => o.type === 'delivery').length}</div>
+              <div style="font-size:10px;color:var(--text-m);text-transform:uppercase;letter-spacing:.5px">🍽️/🥡/🛵</div>
             </div>
           </div>
 
           <!-- Search + Filter -->
           <div style="display:flex;gap:8px;align-items:center">
-            <input id="allOrdersSearch" type="text" placeholder="🔍 Search by order ID or item..." style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;outline:none">
+            <input id="allOrdersSearch" type="text" placeholder="🔍 Search by order ID or item..." style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid rgba(0,0,0,.1);background:var(--glass-s);color:var(--text);font-size:13px;outline:none">
             <div style="display:flex;gap:4px">
-              <button class="ao-filter active" data-filter="all" style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--brand-gold);color:#000;font-size:11px;font-weight:700;cursor:pointer">All</button>
-              <button class="ao-filter" data-filter="dine-in" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🍽️</button>
-              <button class="ao-filter" data-filter="takeaway" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🥡</button>
-              <button class="ao-filter" data-filter="delivery" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🛵</button>
+              <button class="ao-filter active" data-filter="all" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--brand);color:#fff;font-size:11px;font-weight:700;cursor:pointer">All</button>
+              <button class="ao-filter" data-filter="dine-in" style="padding:7px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">🍽️</button>
+              <button class="ao-filter" data-filter="takeaway" style="padding:7px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">🥡</button>
+              <button class="ao-filter" data-filter="delivery" style="padding:7px 10px;border-radius:8px;border:1px solid rgba(0,0,0,.1);background:var(--glass);color:var(--text);font-size:11px;font-weight:600;cursor:pointer">🛵</button>
             </div>
           </div>
         </div>
@@ -250,22 +250,22 @@ function renderDashboard(state) {
         <!-- Orders List -->
         <div id="allOrdersList" style="padding:8px 12px">
           ${todayOrders.map((o, idx) => `
-            <div class="ao-row" data-type="${o.type || 'dine-in'}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:4px;border-radius:10px;background:${idx % 2 === 0 ? 'var(--bg-card)' : 'transparent'};transition:background .15s">
-              <span style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center;font-weight:600">#${idx + 1}</span>
+            <div class="ao-row" data-type="${o.type || 'dine-in'}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:4px;border-radius:10px;background:${idx % 2 === 0 ? 'var(--glass)' : 'transparent'};border:${idx % 2 === 0 ? '1px solid var(--glass-border)' : 'none'};transition:background .15s">
+              <span style="font-size:11px;color:var(--text-m);min-width:28px;text-align:center;font-weight:600">#${idx + 1}</span>
               <span style="font-size:18px;min-width:24px">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'}</span>
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-weight:700;font-size:14px">${o.id || '?'}</span>
-                  <span style="font-size:11px;opacity:.4;text-transform:capitalize">${o.type || 'dine-in'}</span>
-                  ${o.table ? `<span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:4px">T${o.table}</span>` : ''}
+                  <span style="font-weight:700;font-size:14px;color:var(--text)">${o.id || '?'}</span>
+                  <span style="font-size:11px;color:var(--text-m);text-transform:capitalize">${o.type || 'dine-in'}</span>
+                  ${o.table ? `<span style="font-size:10px;background:rgba(0,0,0,.06);padding:1px 6px;border-radius:4px;color:var(--text-s)">T${o.table}</span>` : ''}
                 </div>
-                <div style="font-size:11px;opacity:.45;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
+                <div style="font-size:11px;color:var(--text-m);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
               </div>
               <div style="text-align:right;min-width:80px">
-                <div style="font-weight:800;font-size:14px;color:${o.isComplimentary ? 'var(--text-muted)' : 'var(--brand-gold)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
+                <div style="font-weight:800;font-size:14px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
                 <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;margin-top:2px">
-                  <span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:4px;font-weight:600">${(o.payment || 'cash').toUpperCase()}</span>
-                  <span style="font-size:10px;opacity:.4">${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span style="font-size:10px;background:rgba(0,0,0,.06);padding:1px 6px;border-radius:4px;font-weight:600;color:var(--text-s)">${(o.payment || 'cash').toUpperCase()}</span>
+                  <span style="font-size:10px;color:var(--text-m)">${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               </div>
             </div>
