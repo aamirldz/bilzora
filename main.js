@@ -1889,15 +1889,18 @@ function generateReportPDF() {
 function bindDashboard() {
     document.querySelectorAll('.quick-action-btn').forEach(b => b.onclick = () => navigate(b.dataset.goto));
 
-    // View More orders toggle
+    // View All Orders → open modal
     const viewMoreBtn = document.getElementById('dashboardViewMoreBtn');
-    const moreOrders = document.getElementById('dashboardMoreOrders');
-    if (viewMoreBtn && moreOrders) {
-        viewMoreBtn.onclick = () => {
-            const isHidden = moreOrders.style.display === 'none';
-            moreOrders.style.display = isHidden ? 'block' : 'none';
-            viewMoreBtn.textContent = isHidden ? '↑ Show Less' : `📋 View All Orders`;
-        };
+    const modal = document.getElementById('allOrdersModal');
+    const closeBtn = document.getElementById('closeAllOrdersModal');
+    if (viewMoreBtn && modal) {
+        viewMoreBtn.onclick = () => { modal.style.display = 'block'; };
+    }
+    if (closeBtn && modal) {
+        closeBtn.onclick = () => { modal.style.display = 'none'; };
+    }
+    if (modal) {
+        modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
     }
 
     // ── Real-time auto-refresh every 15 seconds ──

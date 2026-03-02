@@ -195,24 +195,37 @@ function renderDashboard(state) {
           `).join('') : '<div style="padding:20px;text-align:center;color:#999;">No orders yet today. Start taking orders!</div>'}
         </div>
         ${todayOrders.length > 6 ? `
-          <div id="dashboardMoreOrders" style="display:none">
-            <div class="recent-orders-list">
-              ${todayOrders.slice(6).map(o => `
-                <div class="recent-order-row">
-                  <span class="order-type-chip ${o.type || 'dine-in'}">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type || 'dine-in'}</span>
-                  <div class="recent-order-info"><span class="recent-order-id">${o.id || '?'}</span>${o.items ? `<span style="opacity:.5;font-size:11px;margin-left:4px">${o.items.length} items</span>` : ''}</div>
-                  <div class="recent-order-total ${o.isComplimentary ? 'comp' : ''}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
-                  <span class="recent-order-payment">${(o.payment || 'cash').toUpperCase()}</span>
-                  <span class="recent-order-time">${timeAgo(Date.now() - o.time)}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-          <button id="dashboardViewMoreBtn" style="width:100%;padding:10px;border:none;background:var(--bg-secondary);color:var(--brand-gold);cursor:pointer;border-radius:0 0 12px 12px;font-weight:600;font-size:13px;transition:background .2s">
-            📋 View All ${todayOrders.length} Orders
+          <button id="dashboardViewMoreBtn" style="width:100%;padding:12px;border:none;background:var(--bg-secondary);color:var(--brand-gold);cursor:pointer;border-radius:0 0 12px 12px;font-weight:600;font-size:13px;transition:background .2s">
+            📋 View All ${todayOrders.length} Orders →
           </button>
         ` : ''}
       </div>
+
+    <!-- All Orders Modal (hidden by default) -->
+    <div id="allOrdersModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);overflow-y:auto;padding:20px;animation:fadeIn .2s ease">
+      <div style="max-width:700px;margin:20px auto;background:var(--bg-card);border-radius:16px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-card);border-radius:16px 16px 0 0;z-index:1">
+          <div><span style="font-size:18px;font-weight:700">📋 All Orders Today</span><span style="margin-left:10px;font-size:13px;opacity:.6">${todayOrders.length} orders · ${fmt(revenue)}</span></div>
+          <button id="closeAllOrdersModal" style="background:none;border:none;color:var(--text-primary);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s">&times;</button>
+        </div>
+        <div style="padding:8px 12px;max-height:70vh;overflow-y:auto">
+          ${todayOrders.map((o, idx) => `
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);${idx % 2 === 0 ? 'background:rgba(255,255,255,.02)' : ''}">
+              <span style="font-size:11px;color:var(--text-muted);min-width:24px;text-align:center">${idx + 1}</span>
+              <span class="order-type-chip ${o.type || 'dine-in'}" style="font-size:11px">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type || 'dine-in'}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:13px">${o.id || '?'}</div>
+                <div style="font-size:11px;opacity:.5">${(o.items || []).map(i => i.name).join(', ') || 'No items'}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-weight:700;color:${o.isComplimentary ? 'var(--text-muted)' : 'var(--brand-gold)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
+                <div style="font-size:11px;opacity:.5">${(o.payment || 'cash').toUpperCase()} · ${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
     </div>
   </div>`;
 }
