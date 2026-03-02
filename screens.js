@@ -102,7 +102,7 @@ function renderDashboard(state) {
         <div class="stat-card-header"><span class="stat-icon">📦</span>${ordGrowth !== 0 ? `<span class="stat-badge ${ordGrowth >= 0 ? 'up' : 'down'}">${ordGrowth >= 0 ? '↑' : '↓'} ${Math.abs(ordGrowth)}%</span>` : ''}</div>
         <div class="stat-value">${todayOrders.length}</div>
         <div class="stat-label">Orders Today</div>
-        <div class="stat-sub">🍽️ Dine-in: ${todayOrders.filter(o => o.type === 'dine-in').length} · 🥡 Takeaway: ${todayOrders.filter(o => o.type === 'takeaway').length} · 🛵 Delivery: ${todayOrders.filter(o => o.type === 'delivery').length}</div>
+        <div class="stat-sub">🍽️ Dine-in: ${todayOrders.filter(o => (o.type || 'dine-in') === 'dine-in').length} · 🥡 Takeaway: ${todayOrders.filter(o => o.type === 'takeaway').length} · 🛵 Delivery: ${todayOrders.filter(o => o.type === 'delivery').length}</div>
       </div>
       <div class="stat-card">
         <div class="stat-card-header"><span class="stat-icon">📊</span>${avgGrowth !== 0 ? `<span class="stat-badge ${avgGrowth >= 0 ? 'up' : 'down'}">${avgGrowth >= 0 ? '↑' : '↓'} ${Math.abs(avgGrowth)}%</span>` : ''}</div>
@@ -113,7 +113,7 @@ function renderDashboard(state) {
       <div class="stat-card stat-goal">
         <div class="stat-card-header"><span class="stat-icon">🎯</span></div>
         <div class="goal-ring-wrap">
-          <svg class="goal-ring" viewBox="0 0 70 70"><circle cx="35" cy="35" r="30" fill="none" stroke="var(--bg-tertiary)" stroke-width="5"/><circle cx="35" cy="35" r="30" fill="none" stroke="var(--brand-gold)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${goalDash} 188.5" transform="rotate(-90 35 35)"/></svg>
+          <svg class="goal-ring" viewBox="0 0 70 70"><circle cx="35" cy="35" r="30" fill="none" stroke="rgba(0,0,0,.08)" stroke-width="5"/><circle cx="35" cy="35" r="30" fill="none" stroke="var(--brand)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${goalDash} 188.5" transform="rotate(-90 35 35)"/></svg>
           <span class="goal-pct">${goalPct}%</span>
         </div>
         <div class="stat-label">Daily Goal: ${fmt(dailyGoal)}</div>
@@ -1255,7 +1255,7 @@ function renderCRM() {
     </div>
     <div class="stat-grid-4" style="margin-bottom:16px">
       <div class="stat-card"><div class="stat-value">${CUSTOMERS.length}</div><div class="stat-label">Total Customers</div></div>
-      <div class="stat-card"><div class="stat-value" style="color:var(--brand-gold)">${CUSTOMERS.filter(c => c.loyalty === 'gold').length}</div><div class="stat-label">Gold Members</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:#f5a623">${CUSTOMERS.filter(c => c.loyalty === 'gold').length}</div><div class="stat-label">Gold Members</div></div>
       <div class="stat-card"><div class="stat-value">${fmt(CUSTOMERS.reduce((s, c) => s + c.spent, 0))}</div><div class="stat-label">Total Revenue</div></div>
       <div class="stat-card"><div class="stat-value">${Math.round(CUSTOMERS.reduce((s, c) => s + c.orders, 0) / CUSTOMERS.length)}</div><div class="stat-label">Avg Orders/Customer</div></div>
     </div>

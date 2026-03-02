@@ -1079,12 +1079,12 @@ function openPaymentModal() {
           </select>
         </div>
         <div class="form-field" style="flex:1">
-          <label class="form-label">Last 4 Digits <span style="color:var(--text-muted);font-size:11px">(optional)</span></label>
+          <label class="form-label">Last 4 Digits <span style="color:var(--text-m);font-size:11px">(optional)</span></label>
           <input type="text" id="cardLast4" class="input-full" placeholder="XXXX" maxlength="4">
         </div>
       </div>
       <div class="form-field">
-        <label class="form-label">Approval / Ref No. <span style="color:var(--text-muted);font-size:11px">(optional)</span></label>
+        <label class="form-label">Approval / Ref No. <span style="color:var(--text-m);font-size:11px">(optional)</span></label>
         <input type="text" id="cardRef" class="input-full" placeholder="e.g. 847291">
       </div>
     </div>
@@ -1092,7 +1092,7 @@ function openPaymentModal() {
     <!-- UPI Fields -->
     <div id="payFields_upi" class="pay-detail-fields" style="display:none">
       <div class="form-field">
-        <label class="form-label">UPI Transaction ID <span style="color:var(--text-muted);font-size:11px">(optional)</span></label>
+        <label class="form-label">UPI Transaction ID <span style="color:var(--text-m);font-size:11px">(optional)</span></label>
         <input type="text" id="upiRef" class="input-full" placeholder="e.g. 412938475629">
       </div>
       <div class="upi-qr-hint">
@@ -2224,7 +2224,7 @@ function bindTables() {
     // ✏️ Edit Tables modal
     document.getElementById('editTablesBtn')?.addEventListener('click', () => {
         const buildTableList = () => TABLES.map(t => `
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${t.status !== 'available' ? 'rgba(245,158,11,.08)' : 'var(--bg-secondary)'};border-radius:8px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${t.status !== 'available' ? 'rgba(245,158,11,.08)' : 'var(--glass)'};border-radius:8px;margin-bottom:6px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <span style="font-weight:800;font-size:1rem;">T${t.id}</span>
                     <span style="font-size:.75rem;font-weight:600;color:${t.status === 'available' ? 'var(--ok)' : '#92400e'};text-transform:uppercase;">${t.status}</span>
@@ -3315,7 +3315,7 @@ function init() {
         // Logout button
         const logoutBtn = document.createElement('button');
         logoutBtn.textContent = '🚪 Logout';
-        logoutBtn.style.cssText = 'width:100%;padding:8px;margin-top:8px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text-muted);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;';
+        logoutBtn.style.cssText = 'width:100%;padding:8px;margin-top:8px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text-m);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;';
         logoutBtn.onclick = () => {
             sessionStorage.removeItem('kcb_loggedIn');
             location.reload();
