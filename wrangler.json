@@ -8,8 +8,8 @@
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "kcb-pos-db",
-			"database_id": "069d0b4b-8352-4cbb-86f6-a39cd54be7a3"
+			"database_name": "bilzora-db",
+			"database_id": "54542511-ec50-4fc3-b189-bc4aae5ed410"
 		}
 	]
 }
