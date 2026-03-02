@@ -170,9 +170,9 @@ if (typeof state.settings.serviceCharge !== 'number') {
                     state.reportHistory.push(o);
                 }
             });
-            // Keep only last 30 days of history
-            const thirtyDaysAgo = Date.now() - 30 * 86400000;
-            state.reportHistory = state.reportHistory.filter(o => o.time >= thirtyDaysAgo);
+            // Keep only last 90 days of history
+            const ninetyDaysAgo = Date.now() - 90 * 86400000;
+            state.reportHistory = state.reportHistory.filter(o => o.time >= ninetyDaysAgo);
             localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory));
         }
 
@@ -282,7 +282,7 @@ const db = {
     async loadAll() {
         try {
             const [orders, settings, running, counter] = await Promise.all([
-                this._api('orders?limit=200'),
+                this._api('orders?limit=1000'),
                 this._api('settings'),
                 this._api('running'),
                 this._api('counter')
@@ -315,9 +315,9 @@ async function syncFromD1() {
         // Archive past orders into reportHistory (for week/month reports)
         if (pastOrders.length > 0) {
             state.reportHistory = state.reportHistory || [];
-            const thirtyDaysAgo = Date.now() - 30 * 86400000;
+            const ninetyDaysAgo = Date.now() - 90 * 86400000;
             pastOrders.forEach(o => {
-                if (o.time >= thirtyDaysAgo && !state.reportHistory.find(h => h.id === o.id)) {
+                if (o.time >= ninetyDaysAgo && !state.reportHistory.find(h => h.id === o.id)) {
                     state.reportHistory.push(o);
                 }
             });
@@ -1593,6 +1593,15 @@ function bindScreenEvents() {
 }
 
 function bindReports() {
+    // Auto-sync from D1 cloud when entering reports (ensures fresh data)
+    if (!state._reportsSyncing) {
+        state._reportsSyncing = true;
+        syncFromD1().then(() => {
+            state._reportsSyncing = false;
+            renderScreen();
+        }).catch(() => { state._reportsSyncing = false; });
+    }
+
     // Period tabs
     document.querySelectorAll('.report-tab').forEach(t => t.onclick = () => {
         state.reportPeriod = t.dataset.period;
