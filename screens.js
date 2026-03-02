@@ -1116,15 +1116,45 @@ function renderReports(state) {
 function renderAllReportOrders(state) {
   const period = state.reportPeriod || 'today';
   const DAY = 86400000;
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const now = Date.now();
-  let start, end;
-  if (period === 'today') { start = todayStart.getTime(); end = now; }
-  else if (period === 'yesterday') { start = todayStart.getTime() - DAY; end = todayStart.getTime() - 1; }
-  else if (period === 'week') { const dow = todayStart.getDay(); start = todayStart.getTime() - dow * DAY; end = now; }
-  else { const m = new Date(); m.setDate(1); m.setHours(0, 0, 0, 0); start = m.getTime(); end = now; }
 
-  const filtered = (state.orders || []).filter(o => o && o.time >= start && o.time <= end).sort((a, b) => b.time - a.time);
+  // ── Same data pipeline as renderReports ──
+  let orders = [...(state.orders || [])];
+  if (state.reportHistory && Array.isArray(state.reportHistory)) {
+    orders = [...orders, ...state.reportHistory];
+  }
+  const seen = new Set();
+  orders = orders.filter(o => {
+    if (!o || !o.id || !o.time || typeof o.time !== 'number') return false;
+    if (seen.has(o.id)) return false;
+    seen.add(o.id);
+    return true;
+  });
+  orders.sort((a, b) => b.time - a.time);
+
+  // ── Same period boundaries as renderReports ──
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const yesterdayMidnight = new Date(todayMidnight.getTime() - DAY);
+  const dayOfWeek = todayMidnight.getDay();
+  const sundayMidnight = new Date(todayMidnight.getTime() - dayOfWeek * DAY);
+  const saturdayEnd = new Date(sundayMidnight.getTime() + 7 * DAY - 1);
+
+  let start, end;
+  if (period === 'today') { start = todayMidnight.getTime(); end = now; }
+  else if (period === 'yesterday') { start = yesterdayMidnight.getTime(); end = todayMidnight.getTime() - 1; }
+  else if (period === 'week') {
+    const selectedWeekDay = state._reportWeekDay || 'all';
+    if (selectedWeekDay !== 'all') {
+      const dayIdx = parseInt(selectedWeekDay);
+      start = sundayMidnight.getTime() + dayIdx * DAY;
+      end = start + DAY - 1;
+    } else {
+      start = sundayMidnight.getTime();
+      end = Math.min(saturdayEnd.getTime(), now);
+    }
+  } else { start = now - 30 * DAY; end = now; }
+
+  const filtered = orders.filter(o => o.time >= start && o.time <= end);
   const totalRevenue = filtered.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const totalGST = filtered.reduce((s, o) => s + (Number(o.gst) || 0), 0);
   const totalDiscount = filtered.reduce((s, o) => s + (Number(o.discount) || 0), 0);
