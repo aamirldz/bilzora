@@ -202,28 +202,76 @@ function renderDashboard(state) {
       </div>
 
     <!-- All Orders Modal (hidden by default) -->
-    <div id="allOrdersModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);overflow-y:auto;padding:20px;animation:fadeIn .2s ease">
-      <div style="max-width:700px;margin:20px auto;background:var(--bg-card);border-radius:16px;border:1px solid var(--border);box-shadow:0 20px 60px rgba(0,0,0,.5)">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-card);border-radius:16px 16px 0 0;z-index:1">
-          <div><span style="font-size:18px;font-weight:700">📋 All Orders Today</span><span style="margin-left:10px;font-size:13px;opacity:.6">${todayOrders.length} orders · ${fmt(revenue)}</span></div>
-          <button id="closeAllOrdersModal" style="background:none;border:none;color:var(--text-primary);font-size:24px;cursor:pointer;padding:4px 8px;border-radius:8px;transition:background .2s">&times;</button>
+    <div id="allOrdersModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);overflow-y:auto">
+      <div style="max-width:800px;margin:0 auto;min-height:100vh;background:var(--bg-primary);position:relative">
+
+        <!-- Sticky Header -->
+        <div style="position:sticky;top:0;z-index:10;background:var(--bg-card);border-bottom:1px solid var(--border);padding:16px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div>
+              <div style="font-size:20px;font-weight:800;letter-spacing:-.3px">📋 All Orders Today</div>
+              <div style="font-size:12px;opacity:.5;margin-top:2px">${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            </div>
+            <button id="closeAllOrdersModal" style="background:var(--bg-tertiary);border:none;color:var(--text-primary);font-size:18px;cursor:pointer;padding:8px 14px;border-radius:10px;font-weight:700;transition:all .2s">✕</button>
+          </div>
+
+          <!-- Stats Bar -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800;color:var(--brand-gold)">${fmt(revenue)}</div>
+              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Revenue</div>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800">${todayOrders.length}</div>
+              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Orders</div>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800">${avgOrder > 0 ? fmt(avgOrder) : '₹0'}</div>
+              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">Avg Value</div>
+            </div>
+            <div style="background:var(--bg-tertiary);padding:10px;border-radius:10px;text-align:center">
+              <div style="font-size:16px;font-weight:800">${todayOrders.filter(o => o.type === 'dine-in').length}/${todayOrders.filter(o => o.type === 'takeaway').length}/${todayOrders.filter(o => o.type === 'delivery').length}</div>
+              <div style="font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.5px">🍽️/🥡/🛵</div>
+            </div>
+          </div>
+
+          <!-- Search + Filter -->
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="allOrdersSearch" type="text" placeholder="🔍 Search by order ID or item..." style="flex:1;padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;outline:none">
+            <div style="display:flex;gap:4px">
+              <button class="ao-filter active" data-filter="all" style="padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--brand-gold);color:#000;font-size:11px;font-weight:700;cursor:pointer">All</button>
+              <button class="ao-filter" data-filter="dine-in" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🍽️</button>
+              <button class="ao-filter" data-filter="takeaway" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🥡</button>
+              <button class="ao-filter" data-filter="delivery" style="padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:11px;font-weight:600;cursor:pointer">🛵</button>
+            </div>
+          </div>
         </div>
-        <div style="padding:8px 12px;max-height:70vh;overflow-y:auto">
+
+        <!-- Orders List -->
+        <div id="allOrdersList" style="padding:8px 12px">
           ${todayOrders.map((o, idx) => `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);${idx % 2 === 0 ? 'background:rgba(255,255,255,.02)' : ''}">
-              <span style="font-size:11px;color:var(--text-muted);min-width:24px;text-align:center">${idx + 1}</span>
-              <span class="order-type-chip ${o.type || 'dine-in'}" style="font-size:11px">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'} ${o.type || 'dine-in'}</span>
+            <div class="ao-row" data-type="${o.type || 'dine-in'}" data-search="${(o.id || '').toLowerCase()} ${(o.items || []).map(i => (i.name || '').toLowerCase()).join(' ')}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:4px;border-radius:10px;background:${idx % 2 === 0 ? 'var(--bg-card)' : 'transparent'};transition:background .15s">
+              <span style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center;font-weight:600">#${idx + 1}</span>
+              <span style="font-size:18px;min-width:24px">${(o.type || 'dine-in') === 'dine-in' ? '🍽️' : o.type === 'takeaway' ? '🥡' : '🛵'}</span>
               <div style="flex:1;min-width:0">
-                <div style="font-weight:600;font-size:13px">${o.id || '?'}</div>
-                <div style="font-size:11px;opacity:.5">${(o.items || []).map(i => i.name).join(', ') || 'No items'}</div>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-weight:700;font-size:14px">${o.id || '?'}</span>
+                  <span style="font-size:11px;opacity:.4;text-transform:capitalize">${o.type || 'dine-in'}</span>
+                  ${o.table ? `<span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:4px">T${o.table}</span>` : ''}
+                </div>
+                <div style="font-size:11px;opacity:.45;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(o.items || []).map(i => `${i.name}${(Number(i.qty) || 1) > 1 ? ' ×' + i.qty : ''}`).join(' · ') || '—'}</div>
               </div>
-              <div style="text-align:right">
-                <div style="font-weight:700;color:${o.isComplimentary ? 'var(--text-muted)' : 'var(--brand-gold)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
-                <div style="font-size:11px;opacity:.5">${(o.payment || 'cash').toUpperCase()} · ${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div style="text-align:right;min-width:80px">
+                <div style="font-weight:800;font-size:14px;color:${o.isComplimentary ? 'var(--text-muted)' : 'var(--brand-gold)'}">${o.isComplimentary ? 'COMP' : fmt(Number(o.total) || 0)}</div>
+                <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center;margin-top:2px">
+                  <span style="font-size:10px;background:var(--bg-tertiary);padding:1px 6px;border-radius:4px;font-weight:600">${(o.payment || 'cash').toUpperCase()}</span>
+                  <span style="font-size:10px;opacity:.4">${new Date(o.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
               </div>
             </div>
           `).join('')}
         </div>
+
       </div>
     </div>
     </div>

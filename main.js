@@ -1889,53 +1889,59 @@ function generateReportPDF() {
 function bindDashboard() {
     document.querySelectorAll('.quick-action-btn').forEach(b => b.onclick = () => navigate(b.dataset.goto));
 
-    // View All Orders → open modal
+    // ── All Orders Modal ──
     const viewMoreBtn = document.getElementById('dashboardViewMoreBtn');
     const modal = document.getElementById('allOrdersModal');
     const closeBtn = document.getElementById('closeAllOrdersModal');
-    if (viewMoreBtn && modal) {
-        viewMoreBtn.onclick = () => { modal.style.display = 'block'; };
-    }
-    if (closeBtn && modal) {
-        closeBtn.onclick = () => { modal.style.display = 'none'; };
-    }
-    if (modal) {
-        modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+    if (viewMoreBtn && modal) viewMoreBtn.onclick = () => { modal.style.display = 'block'; };
+    if (closeBtn && modal) closeBtn.onclick = () => { modal.style.display = 'none'; };
+
+    // Search + Filter
+    let activeFilter = 'all';
+    const searchInput = document.getElementById('allOrdersSearch');
+    const rows = document.querySelectorAll('.ao-row');
+
+    function applyFilters() {
+        const q = (searchInput?.value || '').toLowerCase().trim();
+        rows.forEach(r => {
+            const matchType = activeFilter === 'all' || r.dataset.type === activeFilter;
+            const matchSearch = !q || (r.dataset.search || '').includes(q);
+            r.style.display = (matchType && matchSearch) ? 'flex' : 'none';
+        });
     }
 
-    // ── Real-time auto-refresh every 15 seconds ──
-    // Only re-renders if data actually changed (smart diff)
+    if (searchInput) {
+        searchInput.oninput = applyFilters;
+    }
+
+    document.querySelectorAll('.ao-filter').forEach(btn => {
+        btn.onclick = () => {
+            activeFilter = btn.dataset.filter;
+            document.querySelectorAll('.ao-filter').forEach(b => {
+                const isActive = b.dataset.filter === activeFilter;
+                b.style.background = isActive ? 'var(--brand-gold)' : 'var(--bg-tertiary)';
+                b.style.color = isActive ? '#000' : 'var(--text-primary)';
+            });
+            applyFilters();
+        };
+    });
+
+    // ── Real-time auto-refresh every 15s (skip if modal is open) ──
     if (state._dashboardTimer) clearInterval(state._dashboardTimer);
     let lastOrderCount = (state.orders || []).length;
     let lastTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
     state._dashboardTimer = setInterval(() => {
-        // Stop if we left the dashboard
-        if (state.screen !== 'dashboard') {
-            clearInterval(state._dashboardTimer);
-            state._dashboardTimer = null;
-            return;
-        }
-        // Only refresh if something changed
+        if (state.screen !== 'dashboard') { clearInterval(state._dashboardTimer); state._dashboardTimer = null; return; }
+        // Don't refresh while modal is open
+        if (modal && modal.style.display !== 'none') return;
         const curCount = (state.orders || []).length;
         const curTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
         if (curCount !== lastOrderCount || curTotal !== lastTotal) {
-            lastOrderCount = curCount;
-            lastTotal = curTotal;
-            // Remember View More state
-            const wasExpanded = document.getElementById('dashboardMoreOrders')?.style.display === 'block';
-            // Re-render dashboard content
+            lastOrderCount = curCount; lastTotal = curTotal;
             const container = document.getElementById('screenContainer');
             if (container) {
                 container.innerHTML = renderScreenContent(state.screen, state);
                 bindDashboard();
-                // Restore View More state
-                if (wasExpanded) {
-                    const more = document.getElementById('dashboardMoreOrders');
-                    const btn = document.getElementById('dashboardViewMoreBtn');
-                    if (more) more.style.display = 'block';
-                    if (btn) btn.textContent = '↑ Show Less';
-                }
-                // Re-animate bars
                 requestAnimationFrame(() => {
                     document.querySelectorAll('.chart-bar').forEach(b => { b.style.height = b.dataset.height + 'px'; });
                     document.querySelectorAll('.spark-bar').forEach(b => { b.style.height = b.dataset.h + 'px'; });
