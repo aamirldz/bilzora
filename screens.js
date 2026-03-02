@@ -25,18 +25,20 @@ export function renderScreenContent(screen, state) {
    DASHBOARD
    ═══════════════════════════════════════════════ */
 function renderDashboard(state) {
-  const todayOrders = state.orders.filter(o => Date.now() - o.time < 86400000);
-  const revenue = todayOrders.reduce((s, o) => s + o.total, 0);
+  // Midnight-based filtering (consistent with reports)
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const now = Date.now();
+  const todayOrders = (state.orders || []).filter(o => o && o.time && o.time >= todayStart.getTime() && o.time <= now);
+  const revenue = todayOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const avgOrder = todayOrders.length ? Math.round(revenue / todayOrders.length) : 0;
-  const dailyGoal = state.settings?.dailyGoal || 40000;
+  const dailyGoal = Number(state.settings?.dailyGoal) || 40000;
   const goalPct = Math.min(Math.round((revenue / dailyGoal) * 100), 100);
   const goalDash = (goalPct / 100) * 188.5;
 
   // Yesterday's data from reportHistory for comparison
-  const yestStart = new Date(); yestStart.setDate(yestStart.getDate() - 1); yestStart.setHours(0, 0, 0, 0);
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const yestOrders = (state.reportHistory || []).filter(o => o.time >= yestStart.getTime() && o.time < todayStart.getTime());
-  const yestRevenue = yestOrders.reduce((s, o) => s + o.total, 0);
+  const yestStart = new Date(todayStart.getTime() - 86400000);
+  const yestOrders = (state.reportHistory || []).filter(o => o && o.time && o.time >= yestStart.getTime() && o.time < todayStart.getTime());
+  const yestRevenue = yestOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
   const yestAvg = yestOrders.length ? Math.round(yestRevenue / yestOrders.length) : 0;
   const revGrowth = yestRevenue > 0 ? Math.round((revenue - yestRevenue) / yestRevenue * 100) : 0;
   const ordGrowth = yestOrders.length > 0 ? Math.round((todayOrders.length - yestOrders.length) / yestOrders.length * 100) : 0;
@@ -45,7 +47,7 @@ function renderDashboard(state) {
   // Hourly data
   const hours = Array.from({ length: 16 }, (_, i) => i + 8);
   const hourlyData = hours.map(h => {
-    const amt = todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + o.total, 0);
+    const amt = todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + (Number(o.total) || 0), 0);
     return { h, amt };
   });
   const maxHourly = Math.max(...hourlyData.map(d => d.amt), 1);
@@ -53,7 +55,7 @@ function renderDashboard(state) {
   // Real sparkline: last 7 hours of revenue
   const curHour = new Date().getHours();
   const sparkHours = Array.from({ length: 7 }, (_, i) => curHour - 6 + i).filter(h => h >= 0);
-  const sparkVals = sparkHours.map(h => todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + o.total, 0));
+  const sparkVals = sparkHours.map(h => todayOrders.filter(o => new Date(o.time).getHours() === h).reduce((s, o) => s + (Number(o.total) || 0), 0));
   const maxSpark = Math.max(...sparkVals, 1);
 
   return `<div class="animate-in">
@@ -139,8 +141,8 @@ function renderDashboard(state) {
       const itemCounts = {};
       const itemRevenue = {};
       todayOrders.forEach(o => (o.items || []).forEach(i => {
-        itemCounts[i.name] = (itemCounts[i.name] || 0) + (i.qty || 1);
-        itemRevenue[i.name] = (itemRevenue[i.name] || 0) + (i.price || 0) * (i.qty || 1);
+        itemCounts[i.name] = (itemCounts[i.name] || 0) + (Number(i.qty) || 1);
+        itemRevenue[i.name] = (itemRevenue[i.name] || 0) + (Number(i.price) || 0) * (Number(i.qty) || 1);
       }));
       const topItems = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
       const maxQty = topItems.length ? topItems[0][1] : 1;
