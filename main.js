@@ -1597,6 +1597,7 @@ function bindScreenEvents() {
     });
 
     if (s === 'dashboard') bindDashboard();
+    else if (s === 'allOrders') bindAllOrders();
     else if (s === 'billing') bindBilling();
     else if (s === 'kds') bindKDS();
     else if (s === 'tables') bindTables();
@@ -1889,51 +1890,16 @@ function generateReportPDF() {
 function bindDashboard() {
     document.querySelectorAll('.quick-action-btn').forEach(b => b.onclick = () => navigate(b.dataset.goto));
 
-    // ── All Orders Modal ──
+    // View All Orders → navigate to full allOrders screen
     const viewMoreBtn = document.getElementById('dashboardViewMoreBtn');
-    const modal = document.getElementById('allOrdersModal');
-    const closeBtn = document.getElementById('closeAllOrdersModal');
-    if (viewMoreBtn && modal) viewMoreBtn.onclick = () => { modal.style.display = 'block'; modal.scrollTop = 0; };
-    if (closeBtn && modal) closeBtn.onclick = () => { modal.style.display = 'none'; };
+    if (viewMoreBtn) viewMoreBtn.onclick = () => navigate('allOrders');
 
-    // Search + Filter
-    let activeFilter = 'all';
-    const searchInput = document.getElementById('allOrdersSearch');
-    const rows = document.querySelectorAll('.ao-row');
-
-    function applyFilters() {
-        const q = (searchInput?.value || '').toLowerCase().trim();
-        rows.forEach(r => {
-            const matchType = activeFilter === 'all' || r.dataset.type === activeFilter;
-            const matchSearch = !q || (r.dataset.search || '').includes(q);
-            r.style.display = (matchType && matchSearch) ? 'flex' : 'none';
-        });
-    }
-
-    if (searchInput) {
-        searchInput.oninput = applyFilters;
-    }
-
-    document.querySelectorAll('.ao-filter').forEach(btn => {
-        btn.onclick = () => {
-            activeFilter = btn.dataset.filter;
-            document.querySelectorAll('.ao-filter').forEach(b => {
-                const isActive = b.dataset.filter === activeFilter;
-                b.style.background = isActive ? 'var(--brand)' : 'var(--glass)';
-                b.style.color = isActive ? '#fff' : 'var(--text)';
-            });
-            applyFilters();
-        };
-    });
-
-    // ── Real-time auto-refresh every 15s (skip if modal is open) ──
+    // ── Real-time auto-refresh every 15s ──
     if (state._dashboardTimer) clearInterval(state._dashboardTimer);
     let lastOrderCount = (state.orders || []).length;
     let lastTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
     state._dashboardTimer = setInterval(() => {
         if (state.screen !== 'dashboard') { clearInterval(state._dashboardTimer); state._dashboardTimer = null; return; }
-        // Don't refresh while modal is open
-        if (modal && modal.style.display !== 'none') return;
         const curCount = (state.orders || []).length;
         const curTotal = (state.orders || []).reduce((s, o) => s + (Number(o.total) || 0), 0);
         if (curCount !== lastOrderCount || curTotal !== lastTotal) {
@@ -1950,6 +1916,40 @@ function bindDashboard() {
             }
         }
     }, 15000);
+}
+
+function bindAllOrders() {
+    // Back to dashboard
+    const backBtn = document.getElementById('backToDashboard');
+    if (backBtn) backBtn.onclick = () => navigate('dashboard');
+
+    // Search + Filter
+    let activeFilter = 'all';
+    const searchInput = document.getElementById('allOrdersSearch');
+    const rows = document.querySelectorAll('.ao-row');
+
+    function applyFilters() {
+        const q = (searchInput?.value || '').toLowerCase().trim();
+        rows.forEach(r => {
+            const matchType = activeFilter === 'all' || r.dataset.type === activeFilter;
+            const matchSearch = !q || (r.dataset.search || '').includes(q);
+            r.style.display = (matchType && matchSearch) ? 'flex' : 'none';
+        });
+    }
+
+    if (searchInput) searchInput.oninput = applyFilters;
+
+    document.querySelectorAll('.ao-filter').forEach(btn => {
+        btn.onclick = () => {
+            activeFilter = btn.dataset.filter;
+            document.querySelectorAll('.ao-filter').forEach(b => {
+                const isActive = b.dataset.filter === activeFilter;
+                b.style.background = isActive ? 'var(--brand)' : 'var(--glass)';
+                b.style.color = isActive ? '#fff' : 'var(--text)';
+            });
+            applyFilters();
+        };
+    });
 }
 
 function bindBilling() {
