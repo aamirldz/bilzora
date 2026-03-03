@@ -146,9 +146,16 @@ function renderDashboard(state) {
 
       <!-- Live Tables -->
       <div class="card">
-        <div class="card-header"><span>🪑 Live Tables</span><span class="card-badge">${TABLES.filter(t => t.status !== 'available').length}/${TABLES.length} Occupied · ${TABLES.filter(t => t.status === 'occupied').reduce((s, t) => s + (t.guests || 0), 0)} Guests</span></div>
+        <div class="card-header"><span>🪑 Live Tables</span><span class="card-badge">${TABLES.filter(t => t.status !== 'available').length}/${TABLES.length} Active · ${TABLES.filter(t => t.status !== 'available').reduce((s, t) => s + (t.guests || 0), 0)} Guests</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;padding:0 2px;flex-wrap:wrap">
+          <span style="font-size:9px;color:var(--text-m);display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(240,253,244,.8);border:1px solid rgba(22,163,74,.3)"></span>Free</span>
+          <span style="font-size:9px;color:#92400e;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(254,243,199,.7);border:1px solid rgba(253,230,138,.6)"></span>Occupied</span>
+          <span style="font-size:9px;color:#166534;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(220,252,231,.7);border:1px solid rgba(74,222,128,.5)"></span>Printed</span>
+          <span style="font-size:9px;color:#1e40af;display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(219,234,254,.7);border:1px solid rgba(96,165,250,.5)"></span>Paid</span>
+          <span style="font-size:9px;color:var(--err);display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:rgba(254,242,242,.7);border:1px solid rgba(254,202,202,.6)"></span>Bill Due</span>
+        </div>
         <div class="table-mini-grid">
-          ${TABLES.slice(0, 15).map(t => `<div class="table-mini ${t.status}"><span>T${t.id}</span></div>`).join('')}
+          ${TABLES.map(t => `<div class="table-mini ${t.status}" data-goto="tables" style="cursor:pointer"><span>T${t.id}</span>${t.status !== 'available' && t.amount ? `<span style="font-size:7px;position:absolute;bottom:2px;font-weight:800;color:inherit">${fmt(t.amount)}</span>` : ''}</div>`).join('')}
         </div>
       </div>
 
