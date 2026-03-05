@@ -203,7 +203,7 @@ function renderDashboard(state) {
             </div>
           `).join('') : '<div style="padding:20px;text-align:center;color:#999;">No orders yet today. Start taking orders!</div>'}
         </div>
-        ${todayOrders.length > 6 ? `
+        ${todayOrders.length > 0 ? `
           <button id="dashboardViewMoreBtn" style="width:100%;padding:12px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);color:var(--brand);cursor:pointer;border-radius:0 0 12px 12px;font-weight:700;font-size:13px;transition:all .2s;border-top:1px solid rgba(0,0,0,.06)">
             📋 View All ${todayOrders.length} Orders →
           </button>
@@ -1113,7 +1113,7 @@ function renderReports(state) {
         <span style="font-weight:800;font-size:12px;color:${o.isComplimentary ? 'var(--text-m)' : 'var(--brand)'}">${o.isComplimentary ? 'COMP' : fmt(total)}</span>
       </div>`;
   }).join('')}
-      ${recent.length > 6 ? `
+      ${recent.length > 0 ? `
         <button id="reportViewAllBtn" style="width:100%;padding:12px;border:none;background:var(--glass);backdrop-filter:var(--frost-light);color:var(--brand);cursor:pointer;border-radius:0 0 12px 12px;font-weight:700;font-size:13px;transition:all .2s;border-top:1px solid rgba(0,0,0,.06)">
           📋 View All ${filtered.length} Orders →
         </button>
