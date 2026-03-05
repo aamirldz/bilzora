@@ -128,6 +128,26 @@ if (typeof state.settings.serviceCharge !== 'number') {
             pushToCloud.inventoryData = JSON.stringify(INVENTORY);
         }
 
+        // Table state sync — load from cloud so tables persist across logins/devices
+        if (settings.tableData) {
+            try {
+                const cloudTables = JSON.parse(settings.tableData);
+                if (Array.isArray(cloudTables) && cloudTables.length > 0) {
+                    cloudTables.forEach(st => {
+                        const tbl = TABLES.find(t => t.id === st.id);
+                        if (tbl) { tbl.status = st.status; tbl.guests = st.guests; tbl.amount = st.amount; tbl.occupiedSince = st.occupiedSince || null; tbl.orderItems = st.orderItems || []; }
+                    });
+                    localStorage.setItem('kcb_tables', JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))));
+                }
+            } catch (e) { }
+        } else {
+            // Push local table state to cloud if no cloud data exists
+            const localTables = TABLES.filter(t => t.status !== 'available');
+            if (localTables.length > 0) {
+                pushToCloud.tableData = JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] })));
+            }
+        }
+
         // Push any local-only data to cloud (initial migration)
         if (Object.keys(pushToCloud).length > 0) {
             fetch('/api/settings', {
@@ -199,11 +219,12 @@ function runDailyReset() {
         // Reset tables to available
         TABLES.forEach(t => { t.status = 'available'; t.guests = 0; t.amount = 0; t.occupiedSince = null; t.orderItems = []; });
         localStorage.setItem('kcb_tables', JSON.stringify(TABLES));
+        // Also clear cloud table state on daily reset
+        db.saveSettings({ tableData: JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))) });
 
         // If this is a live midnight rollover (not first page load), refresh the screen
         if (savedDate !== '') {
-            syncFromD1().catch(() => { });
-            renderScreen();
+            syncFromD1().then((changed) => { if (changed) renderScreen(); }).catch(() => { });
         }
     } else {
         state.kotCounter = parseInt(localStorage.getItem('kcb_kotCounter') || '0');
@@ -305,8 +326,9 @@ const db = {
 
 // Load from D1 on startup (async, non-blocking)
 async function syncFromD1() {
+    let changed = false;
     const data = await db.loadAll();
-    if (!data) return; // API not available (local dev), use localStorage
+    if (!data) return false; // API not available (local dev), use localStorage
 
     // Split D1 orders into today vs history
     if (data.orders?.length) {
@@ -324,6 +346,7 @@ async function syncFromD1() {
         if (todayOrders.length > state.orders.length) {
             state.orders = todayOrders;
             localStorage.setItem('kcb_orders', JSON.stringify(state.orders));
+            changed = true;
         }
 
         // Archive past orders into reportHistory (for week/month reports)
@@ -335,19 +358,42 @@ async function syncFromD1() {
                 if (o.time >= ninetyDaysAgo && !existingIds.has(o.id)) {
                     state.reportHistory.push(o);
                     existingIds.add(o.id);
+                    changed = true;
                 }
             });
-            try { localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory)); } catch (e) { /* quota exceeded */ }
+            if (changed) {
+                try { localStorage.setItem('kcb_reportHistory', JSON.stringify(state.reportHistory)); } catch (e) { /* quota exceeded */ }
+            }
         }
     }
 
     if (data.counter && data.counter > state.orderCounter) {
         state.orderCounter = data.counter;
         localStorage.setItem('kcb_orderCounter', String(data.counter));
+        changed = true;
     }
-    if (data.running?.length) {
+    if (data.running?.length && JSON.stringify(data.running) !== JSON.stringify(state.runningOrders)) {
         state.runningOrders = data.running;
         localStorage.setItem('kcb_running', JSON.stringify(state.runningOrders));
+        changed = true;
+    }
+    // Sync table state from cloud — critical for cross-login persistence
+    if (data.settings?.tableData) {
+        try {
+            const cloudTables = JSON.parse(data.settings.tableData);
+            let tablesChanged = false;
+            cloudTables.forEach(st => {
+                const tbl = TABLES.find(t => t.id === st.id);
+                if (tbl && (tbl.status !== st.status || tbl.guests !== st.guests || tbl.amount !== st.amount)) {
+                    tbl.status = st.status; tbl.guests = st.guests; tbl.amount = st.amount; tbl.occupiedSince = st.occupiedSince || null; tbl.orderItems = st.orderItems || [];
+                    tablesChanged = true;
+                }
+            });
+            if (tablesChanged) {
+                localStorage.setItem('kcb_tables', JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))));
+                changed = true;
+            }
+        } catch (e) { }
     }
     if (data.settings?.restaurantName) {
         try {
@@ -355,11 +401,15 @@ async function syncFromD1() {
             Object.entries(data.settings).forEach(([k, v]) => {
                 try { merged[k] = JSON.parse(v); } catch { merged[k] = v; }
             });
-            state.settings = merged;
-            localStorage.setItem('kcb_settings', JSON.stringify(state.settings));
+            if (JSON.stringify(merged) !== JSON.stringify(state.settings)) {
+                state.settings = merged;
+                localStorage.setItem('kcb_settings', JSON.stringify(state.settings));
+                changed = true;
+            }
         } catch { }
     }
     // Data updated in state — caller decides whether to re-render
+    return changed;
 }
 
 /* ═══════════════════════════════════════════════
@@ -377,8 +427,11 @@ function persistStateNow() { // force-flush (for critical writes)
 }
 function _doPersist() {
     _persistTimer = null;
-    // Tables
-    localStorage.setItem('kcb_tables', JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))));
+    // Tables — save to localStorage + sync to D1 cloud
+    const tableSnapshot = TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }));
+    localStorage.setItem('kcb_tables', JSON.stringify(tableSnapshot));
+    // Fire-and-forget cloud sync for tables (ensures cross-login persistence)
+    db.saveSettings({ tableData: JSON.stringify(tableSnapshot) });
     // KDS
     localStorage.setItem('kcb_kds', JSON.stringify(state.kdsOrders));
     // Cart & billing
@@ -605,24 +658,29 @@ export function reprintBill(orderId) {
    ═══════════════════════════════════════════════ */
 export function getCartTotals() {
     const subtotal = state.cart.reduce((sum, item) => {
-        const modTotal = (item.modifiers || []).reduce((m, mod) => m + mod.price, 0);
-        return sum + (item.price + modTotal) * item.qty;
+        const modTotal = (item.modifiers || []).reduce((m, mod) => m + (Number(mod.price) || 0), 0);
+        return sum + (Number(item.price || 0) + modTotal) * (Number(item.qty) || 1);
     }, 0);
 
     let discountAmt = 0;
     if (state.isComplimentary) {
         discountAmt = subtotal;
     } else if (state.discount.type === 'percent') {
-        discountAmt = Math.min(Math.round(subtotal * state.discount.value / 100), state.discount.maxDiscount || 99999);
+        const pctVal = Number(state.discount.value) || 0;
+        const maxDisc = Number(state.discount.maxDiscount) || 99999;
+        discountAmt = Math.min(Math.round(subtotal * pctVal / 100), maxDisc);
     } else if (state.discount.type === 'fixed') {
-        discountAmt = Math.min(state.discount.value, subtotal);
+        discountAmt = Math.min(Number(state.discount.value) || 0, subtotal);
     }
 
     const afterDiscount = subtotal - discountAmt;
-    const gst = state.isComplimentary ? 0 : Math.round(afterDiscount * state.settings.gstRate / 100);
-    const svcCharge = state.isComplimentary ? 0 : Math.round(afterDiscount * state.settings.serviceCharge / 100);
+    const gstRate = Number(state.settings?.gstRate) || 0;
+    const svcRate = Number(state.settings?.serviceCharge) || 0;
+
+    const gst = state.isComplimentary ? 0 : Math.round(afterDiscount * gstRate / 100);
+    const svcCharge = state.isComplimentary ? 0 : Math.round(afterDiscount * svcRate / 100);
     const total = afterDiscount + gst + svcCharge;
-    const itemCount = state.cart.reduce((s, i) => s + i.qty, 0);
+    const itemCount = state.cart.reduce((s, i) => s + (Number(i.qty) || 1), 0);
 
     return { subtotal, discountAmt, afterDiscount, gst, svcCharge, total, itemCount };
 }
@@ -1292,9 +1350,9 @@ function completeOrder(totals) {
 
     // Send to KDS only if not already sent via sendKOT
     // (If paying from cart directly without KOT, we need a KDS entry)
-    const existingKOT = state.kdsOrders.find(k => k.table === state.selectedTable && k.status !== 'done');
-    if (!existingKOT) {
-        const kdsItems = state.cart.map(i => ({
+    const unsentItems = state.cart.filter(i => !i.kotSent);
+    if (unsentItems.length > 0) {
+        const kdsItems = unsentItems.map(i => ({
             name: i.name, qty: i.qty, category: i.category,
             station: getStation(i.category).id,
             modifiers: (i.modifiers || []).map(m => m.name),
@@ -1556,7 +1614,8 @@ function navigate(screen) {
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.screen === screen));
 
     const titles = {
-        dashboard: 'Dashboard', billing: 'Billing & Orders', kds: 'Kitchen Display',
+        dashboard: 'Dashboard', allOrders: 'All Orders Today', allReportOrders: 'All Report Orders',
+        billing: 'Billing & Orders', kds: 'Kitchen Display',
         tables: 'Table Management', menu: 'Menu Management', inventory: 'Inventory',
         reports: 'Reports & Analytics', crm: 'Customers (CRM)',
         staff: 'Staff Management', settings: 'Settings'
@@ -1971,7 +2030,7 @@ function bindAllOrders() {
         rows.forEach(r => {
             const matchType = activeFilter === 'all' || r.dataset.type === activeFilter;
             const matchSearch = !q || (r.dataset.search || '').includes(q);
-            r.style.display = (matchType && matchSearch) ? 'flex' : 'none';
+            r.style.display = (matchType && matchSearch) ? 'grid' : 'none';
         });
     }
 
@@ -2250,6 +2309,7 @@ function bindTables() {
             const maxId = TABLES.length > 0 ? Math.max(...TABLES.map(t => t.id)) : 0;
             TABLES.push({ id: maxId + 1, status: 'available', guests: 0, amount: 0, occupiedSince: null, orderItems: [] });
             localStorage.setItem('kcb_tables', JSON.stringify(TABLES));
+            db.saveSettings({ tableData: JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))) });
             document.getElementById('editTablesList').innerHTML = buildTableList();
             bindModalDeleteBtns();
             notify(`🪑 Table T${maxId + 1} added`);
@@ -2264,6 +2324,7 @@ function bindTables() {
                     const idx = TABLES.indexOf(tbl);
                     if (idx > -1) TABLES.splice(idx, 1);
                     localStorage.setItem('kcb_tables', JSON.stringify(TABLES));
+                    db.saveSettings({ tableData: JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))) });
                     document.getElementById('editTablesList').innerHTML = buildTableList();
                     bindModalDeleteBtns();
                     notify(`🗑️ Table T${tableId} deleted`);
@@ -3141,6 +3202,7 @@ function startAutoSync() {
         // Only sync when tab is visible
         if (document.hidden) return;
         rIC(async () => {
+            let changed = false;
             try {
                 const res = await fetch('/api/settings');
                 const settings = await res.json();
@@ -3153,6 +3215,7 @@ function startAutoSync() {
                             STAFF.length = 0;
                             cloud.forEach(s => STAFF.push(s));
                             localStorage.setItem('kcb_staffData', settings.staffData);
+                            changed = true;
                         }
                     } catch (e) { }
                 }
@@ -3165,6 +3228,7 @@ function startAutoSync() {
                             CUSTOMERS.length = 0;
                             cloud.forEach(c => CUSTOMERS.push(c));
                             localStorage.setItem('kcb_customerData', settings.customerData);
+                            changed = true;
                         }
                     } catch (e) { }
                 }
@@ -3186,6 +3250,27 @@ function startAutoSync() {
                     state.settings.adminUser = settings.adminUser;
                     state.settings.adminPass = settings.adminPass || state.settings.adminPass;
                     localStorage.setItem('kcb_settings', JSON.stringify(state.settings));
+                }
+
+                // Sync table state from cloud (ensures Live Tables dashboard stays current)
+                if (settings.tableData) {
+                    try {
+                        const cloudTables = JSON.parse(settings.tableData);
+                        if (Array.isArray(cloudTables) && cloudTables.length > 0) {
+                            let changed = false;
+                            cloudTables.forEach(st => {
+                                const tbl = TABLES.find(t => t.id === st.id);
+                                if (tbl && tbl.status !== st.status) {
+                                    tbl.status = st.status; tbl.guests = st.guests; tbl.amount = st.amount;
+                                    tbl.occupiedSince = st.occupiedSince || null; tbl.orderItems = st.orderItems || [];
+                                    changed = true;
+                                }
+                            });
+                            if (changed) {
+                                localStorage.setItem('kcb_tables', JSON.stringify(TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }))));
+                            }
+                        }
+                    } catch (e) { }
                 }
             } catch (e) { }
         });
@@ -3348,7 +3433,7 @@ function init() {
         navigate(state.screen || 'billing');
 
         // Async: load from D1 cloud database (single re-render after sync)
-        syncFromD1().then(() => renderScreen()).catch(() => { });
+        syncFromD1().then((changed) => { if (changed) renderScreen(); }).catch(() => { });
 
         // Start auto-sync polling (every 2 minutes)
         startAutoSync();

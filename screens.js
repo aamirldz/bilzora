@@ -846,7 +846,10 @@ function renderReports(state) {
     const cat = i.category || 'other';
     catRevenue[cat] = (catRevenue[cat] || 0) + (Number(i.price) || 0) * (Number(i.qty) || 1);
   }));
-  const catEntries = Object.entries(catRevenue).sort((a, b) => b[1] - a[1]);
+  // Copy catRevenue into an array and only keep categories that actually have revenue!
+  const catEntries = Object.entries(catRevenue)
+    .filter(a => a[1] > 0)
+    .sort((a, b) => b[1] - a[1]);
   const maxCatRev = catEntries.length ? Math.max(catEntries[0][1], 1) : 1;
   const catColors = ['#e63946', '#f5a623', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c', '#e74c3c'];
 
