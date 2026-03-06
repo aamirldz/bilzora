@@ -145,6 +145,151 @@ async function handleAPI(url, request, env) {
             return new Response(JSON.stringify({ ok: true, reset: true }), { headers });
         }
 
+        // ══════════════════════════════════════
+        // RESTOVA ADMIN ENDPOINTS
+        // (These expose POS data for the admin panel)
+        // ══════════════════════════════════════
+
+        // ── MENU ITEMS (read from settings or return static defaults) ──
+        if (path === '/api/menu' && method === 'GET') {
+            const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'menuData'").first();
+            if (row?.value) {
+                return new Response(row.value, { headers });
+            }
+            // Return empty — menu is static in data.js on client side
+            return new Response(JSON.stringify({ source: 'static', message: 'Menu is loaded from static data.js on POS client' }), { headers });
+        }
+
+        // ── TABLE STATUS (synced from POS via settings) ──
+        if (path === '/api/tables' && method === 'GET') {
+            const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'tableData'").first();
+            if (row?.value) {
+                try {
+                    const tables = JSON.parse(row.value);
+                    return new Response(JSON.stringify(tables), { headers });
+                } catch (e) {
+                    return new Response(JSON.stringify([]), { headers });
+                }
+            }
+            // Default: 20 available tables
+            const defaultTables = Array.from({ length: 20 }, (_, i) => ({
+                id: i + 1, status: 'available', guests: 0, amount: 0
+            }));
+            return new Response(JSON.stringify(defaultTables), { headers });
+        }
+
+        // ── STAFF (synced from POS via settings) ──
+        if (path === '/api/staff' && method === 'GET') {
+            const row = await env.DB.prepare("SELECT value FROM settings WHERE key = 'staffData'").first();
+            if (row?.value) {
+                try {
+                    const staff = JSON.parse(row.value);
+                    return new Response(JSON.stringify(staff), { headers });
+                } catch (e) {
+                    return new Response(JSON.stringify([]), { headers });
+                }
+            }
+            return new Response(JSON.stringify([]), { headers });
+        }
+
+        // ── KITCHEN / KDS STATUS ──
+        if (path === '/api/kitchen' && method === 'GET') {
+            // KDS orders are synced from the POS via settings.kdsData
+            let activeKOTs = [];
+            const kdsRow = await env.DB.prepare("SELECT value FROM settings WHERE key = 'kdsData'").first();
+            if (kdsRow?.value) {
+                try {
+                    const allKOTs = JSON.parse(kdsRow.value);
+                    // Only show active KOTs (not 'done' or 'ready')
+                    activeKOTs = allKOTs.filter(k => k.status !== 'done' && k.status !== 'ready');
+                } catch (e) { }
+            }
+
+            const stations = [
+                { id: 'wok', name: 'Wok Station', icon: '🔥', categories: ['noodles', 'rice', 'chopsuey', 'ramen'] },
+                { id: 'grill', name: 'Grill & Fry', icon: '🍳', categories: ['snacks', 'spring-roll', 'egg-magic', 'fish', 'kurkure-momos'] },
+                { id: 'steam', name: 'Steam & Momo', icon: '♨️', categories: ['momos', 'tandoori-momos', 'thuppa', 'soup', 'chicken-soup', 'laphing'] },
+                { id: 'pasta-stn', name: 'Pasta Station', icon: '🍝', categories: ['pasta'] },
+                { id: 'prep', name: 'Prep & Veg', icon: '🥦', categories: ['vegetables', 'combo'] },
+                { id: 'drinks', name: 'Drinks Station', icon: '🍹', categories: ['mocktails', 'shakes', 'bobba', 'popping-tea', 'cold-drink'] },
+            ];
+
+            return new Response(JSON.stringify({
+                stations,
+                activeKOTs: activeKOTs.length,
+                orders: activeKOTs,
+            }), { headers });
+        }
+
+        // ── DEVICE HEARTBEAT ──
+        if (path === '/api/heartbeat' && method === 'GET') {
+            const settings = {};
+            const rows = await env.DB.prepare('SELECT key, value FROM settings').all();
+            rows.results.forEach(r => { settings[r.key] = r.value; });
+
+            const orderCount = await env.DB.prepare('SELECT COUNT(*) as count FROM orders').first();
+            const runningCount = await env.DB.prepare('SELECT COUNT(*) as count FROM running_orders').first();
+            const lastOrder = await env.DB.prepare('SELECT created_at FROM orders ORDER BY created_at DESC LIMIT 1').first();
+
+            return new Response(JSON.stringify({
+                status: 'online',
+                timestamp: Date.now(),
+                posVersion: '2.4.1',
+                restaurantName: settings.restaurantName || 'King Chinese Bowl',
+                totalOrders: orderCount?.count || 0,
+                activeOrders: runningCount?.count || 0,
+                lastOrderAt: lastOrder?.created_at ? lastOrder.created_at * 1000 : null,
+                uptime: Date.now(),
+                dbSize: rows.results.length + ' keys',
+            }), { headers });
+        }
+
+        // ── FULL DASHBOARD (aggregated data for Restova) ──
+        if (path === '/api/dashboard' && method === 'GET') {
+            const settings = {};
+            const sRows = await env.DB.prepare('SELECT key, value FROM settings').all();
+            sRows.results.forEach(r => { settings[r.key] = r.value; });
+
+            const orderCount = await env.DB.prepare('SELECT COUNT(*) as count FROM orders').first();
+            const runningCount = await env.DB.prepare('SELECT COUNT(*) as count FROM running_orders').first();
+
+            // Get today's orders
+            const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+            const todayOrders = await env.DB.prepare('SELECT data FROM orders WHERE created_at >= ?').bind(todayStart).all();
+            let todayRevenue = 0;
+            todayOrders.results.forEach(r => {
+                try { todayRevenue += JSON.parse(r.data).total || 0; } catch (e) { }
+            });
+
+            // Tables
+            let tables = [];
+            if (settings.tableData) {
+                try { tables = JSON.parse(settings.tableData); } catch (e) { }
+            }
+            const occupiedTables = tables.filter(t => t.status !== 'available').length;
+
+            // Staff
+            let staff = [];
+            if (settings.staffData) {
+                try { staff = JSON.parse(settings.staffData); } catch (e) { }
+            }
+
+            return new Response(JSON.stringify({
+                restaurantName: settings.restaurantName || 'King Chinese Bowl',
+                totalOrders: orderCount?.count || 0,
+                todayOrders: todayOrders.results.length,
+                todayRevenue,
+                activeOrders: runningCount?.count || 0,
+                totalTables: tables.length || 20,
+                occupiedTables,
+                totalStaff: staff.length,
+                activeStaff: staff.filter(s => s.role).length,
+                posVersion: '2.4.1',
+                status: 'online',
+                timestamp: Date.now(),
+            }), { headers });
+        }
+
         return new Response(JSON.stringify({ error: 'Not found' }), { status: 404, headers });
     } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), { status: 500, headers });

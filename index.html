@@ -28,7 +28,7 @@
             <p style="color:#aaa;font-size:14px;margin-top:6px;">Point of Sale System</p>
         </div>
         <div style="display:flex;gap:32px;flex-wrap:wrap;justify-content:center;max-width:760px;padding:0 20px;">
-            <!-- Admin Card -->
+            <!-- Owner Card -->
             <div
                 style="background:#fff;border-radius:16px;padding:32px 34px;width:320px;box-shadow:0 4px 20px rgba(0,0,0,0.06);border-top:4px solid #e63946;">
                 <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
@@ -36,22 +36,22 @@
                         style="width:52px;height:52px;border-radius:14px;background:#fef0f0;display:flex;align-items:center;justify-content:center;font-size:26px;">
                         🔐</div>
                     <div>
-                        <h3 style="font-size:19px;font-weight:700;color:#1a1a2e;margin:0;">Admin Login</h3>
+                        <h3 style="font-size:19px;font-weight:700;color:#1a1a2e;margin:0;">Owner Login</h3>
                         <p style="font-size:12px;color:#aaa;margin:3px 0 0;">Full access to all features &amp; settings
                         </p>
                     </div>
                 </div>
-                <input type="text" id="adminUser" placeholder="👤  Username"
+                <input type="text" id="ownerUser" placeholder="👤  Username"
                     style="width:100%;padding:13px 16px;border:1.5px solid #eee;border-radius:12px;margin-bottom:10px;font-size:15px;box-sizing:border-box;outline:none;transition:border .2s,background .2s;background:#fafafa;"
                     onfocus="this.style.borderColor='#e63946';this.style.background='#fff'"
                     onblur="this.style.borderColor='#eee';this.style.background='#fafafa'">
-                <input type="password" id="adminPass" placeholder="🔒  Password"
+                <input type="password" id="ownerPass" placeholder="🔒  Password"
                     style="width:100%;padding:13px 16px;border:1.5px solid #eee;border-radius:12px;margin-bottom:14px;font-size:15px;box-sizing:border-box;outline:none;transition:border .2s,background .2s;background:#fafafa;"
                     onfocus="this.style.borderColor='#e63946';this.style.background='#fff'"
                     onblur="this.style.borderColor='#eee';this.style.background='#fafafa'">
-                <div id="adminError"
+                <div id="ownerError"
                     style="color:#e63946;font-size:12px;min-height:18px;margin-bottom:8px;text-align:center;"></div>
-                <button id="adminLoginBtn"
+                <button id="ownerLoginBtn"
                     style="width:100%;padding:14px;background:#e63946;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s;letter-spacing:0.3px;"
                     onmouseover="this.style.background='#d62839'" onmouseout="this.style.background='#e63946'">Login Now
                     →</button>

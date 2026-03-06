@@ -431,7 +431,7 @@ function _doPersist() {
     const tableSnapshot = TABLES.map(t => ({ id: t.id, status: t.status, guests: t.guests, amount: t.amount, occupiedSince: t.occupiedSince || null, orderItems: t.orderItems || [] }));
     localStorage.setItem('kcb_tables', JSON.stringify(tableSnapshot));
     // Fire-and-forget cloud sync for tables (ensures cross-login persistence)
-    db.saveSettings({ tableData: JSON.stringify(tableSnapshot) });
+    db.saveSettings({ tableData: JSON.stringify(tableSnapshot), kdsData: JSON.stringify(state.kdsOrders) });
     // KDS
     localStorage.setItem('kcb_kds', JSON.stringify(state.kdsOrders));
     // Cart & billing
@@ -575,7 +575,7 @@ function printCustomerBill(order) {
     const billNum = order.id ? order.id.replace(/[^0-9]/g, '') : '1';
     const orderType = (order.type || 'dine-in') === 'dine-in' ? 'Dine In' : 'Take Away';
     const tableLabel = order.table ? `${orderType}: T${order.table}` : orderType;
-    const cashierName = state.settings.cashierName || 'Admin';
+    const cashierName = state.settings.cashierName || 'Owner';
     const footerText = state.settings.footerText || 'Thanks For Ordering !!';
 
     // Build items table rows
@@ -3282,6 +3282,75 @@ function startAutoSync() {
    ═══════════════════════════════════════════════ */
 function init() {
 
+    // ══════════════════════════════════════════════
+    // LICENSE CHECK — Verify with Restova before POS loads
+    // ══════════════════════════════════════════════
+    const RESTOVA_API = 'https://restova.faizanldz07.workers.dev';
+    const RESTAURANT_ID = 'BLZ-001'; // This POS instance's restaurant ID in Restova
+
+    (async () => {
+        try {
+            const res = await fetch(`${RESTOVA_API}/api/license-check?id=${RESTAURANT_ID}`);
+            const license = await res.json();
+
+            if (!license.active) {
+                // Block the POS — show full-screen overlay
+                const overlay = document.createElement('div');
+                overlay.id = 'licenseBlockOverlay';
+                overlay.style.cssText = `
+                    position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999999;
+                    background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);
+                    display:flex;align-items:center;justify-content:center;flex-direction:column;
+                    font-family:-apple-system,BlinkMacSystemFont,sans-serif;color:#fff;
+                `;
+
+                const reasonIcon = license.reason === 'suspended' ? '🚫' : license.reason === 'expired' ? '⏰' : '🔒';
+                const reasonTitle = license.reason === 'suspended' ? 'Subscription Suspended'
+                    : license.reason === 'expired' ? 'Subscription Expired'
+                        : 'Account Deactivated';
+
+                overlay.innerHTML = `
+                    <div style="text-align:center;max-width:500px;padding:40px">
+                        <div style="font-size:72px;margin-bottom:20px">${reasonIcon}</div>
+                        <h1 style="font-size:28px;font-weight:800;margin-bottom:12px;color:#fff">${reasonTitle}</h1>
+                        <p style="font-size:15px;color:#94a3b8;line-height:1.6;margin-bottom:24px">
+                            ${license.message || 'Your Bilzora POS license is not active.'}
+                        </p>
+                        ${license.plan ? `<div style="display:inline-block;padding:8px 20px;background:rgba(255,255,255,0.1);border-radius:20px;font-size:13px;margin-bottom:16px">
+                            Plan: <strong>${license.plan}</strong>${license.expiry ? ` · Expiry: ${license.expiry}` : ''}
+                        </div>` : ''}
+                        <div style="margin-top:24px;padding:16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px">
+                            <div style="font-size:13px;color:#64748b;margin-bottom:8px">Contact your admin to reactivate</div>
+                            <div style="font-size:14px;font-weight:600;color:#60a5fa">Restova Admin Panel</div>
+                            <div style="font-size:12px;color:#475569;margin-top:4px">${RESTOVA_API}</div>
+                        </div>
+                        <button onclick="location.reload()" style="margin-top:24px;padding:10px 24px;background:#3b82f6;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">
+                            🔄 Retry
+                        </button>
+                    </div>
+                `;
+
+                document.body.appendChild(overlay);
+                // Hide everything behind it
+                const app = document.getElementById('app');
+                const login = document.getElementById('loginScreen');
+                if (app) app.style.display = 'none';
+                if (login) login.style.display = 'none';
+                console.warn('⛔ Bilzora POS blocked:', license.reason, license.message);
+                return; // Stop init entirely
+            }
+
+            // License is active — show remaining days warning if < 30
+            if (license.daysRemaining && license.daysRemaining <= 30) {
+                console.warn(`⚠️ License expires in ${license.daysRemaining} days`);
+                // We'll show a subtle banner after login
+                sessionStorage.setItem('licenseWarning', `Your ${license.plan} plan expires in ${license.daysRemaining} days. Contact Restova to renew.`);
+            }
+        } catch (e) {
+            // If Restova is unreachable, allow POS to work (offline-first)
+            console.warn('⚠️ License check failed (Restova unreachable), allowing POS to operate:', e.message);
+        }
+    })();
 
     // ── LOGIN SYSTEM ──
     const loginScreen = document.getElementById('loginScreen');
@@ -3289,8 +3358,8 @@ function init() {
     const activeSession = sessionStorage.getItem('kcb_loggedIn');
 
     // Set default credentials if not yet configured
-    if (!state.settings.adminUser) state.settings.adminUser = 'admin';
-    if (!state.settings.adminPass) state.settings.adminPass = 'admin123';
+    if (!state.settings.adminUser) state.settings.adminUser = 'owner';
+    if (!state.settings.adminPass) state.settings.adminPass = 'owner123';
     if (!state.settings.staffUser) state.settings.staffUser = 'staff';
     if (!state.settings.staffPass) state.settings.staffPass = 'staff123';
 
@@ -3299,7 +3368,7 @@ function init() {
         const roleEl = document.querySelector('.user-role');
         const avatarEl = document.querySelector('.user-avatar');
         if (role === 'admin') {
-            if (nameEl) nameEl.textContent = 'Admin';
+            if (nameEl) nameEl.textContent = 'Owner';
             if (roleEl) roleEl.textContent = 'Owner';
             if (avatarEl) avatarEl.textContent = 'AD';
         } else {
@@ -3329,10 +3398,10 @@ function init() {
         loginScreen.style.display = 'flex';
         appEl.style.display = 'none';
 
-        // Admin login (tries local, then D1 cloud)
-        document.getElementById('adminLoginBtn').onclick = async () => {
-            const u = document.getElementById('adminUser').value.trim();
-            const p = document.getElementById('adminPass').value;
+        // Owner login (tries local, then D1 cloud)
+        document.getElementById('ownerLoginBtn').onclick = async () => {
+            const u = document.getElementById('ownerUser').value.trim();
+            const p = document.getElementById('ownerPass').value;
             if (u === state.settings.adminUser && p === state.settings.adminPass) {
                 sessionStorage.setItem('kcb_loggedIn', 'admin');
                 onLoginSuccess('admin');
@@ -3352,10 +3421,10 @@ function init() {
                         return;
                     }
                 } catch (e) { }
-                document.getElementById('adminError').textContent = '❌ Wrong username or password';
+                document.getElementById('ownerError').textContent = '❌ Wrong username or password';
             }
         };
-        document.getElementById('adminPass').onkeydown = (e) => { if (e.key === 'Enter') document.getElementById('adminLoginBtn').click(); };
+        document.getElementById('ownerPass').onkeydown = (e) => { if (e.key === 'Enter') document.getElementById('ownerLoginBtn').click(); };
 
         // Staff login — authenticates against staff records (tries local, then D1 cloud)
         document.getElementById('staffLoginBtn').onclick = async () => {

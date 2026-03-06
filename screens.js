@@ -1406,15 +1406,15 @@ function renderSettings(state) {
           <div class="form-group"><label>Phone</label><input type="text" id="settingPhone" value="${s.phone || ''}"></div>
           <div class="form-group"><label>Address</label><input type="text" id="settingAddress" value="${s.address || ''}"></div>
           <div class="form-group"><label>GST No.</label><input type="text" id="settingGstNo" value="${s.gstNo || ''}"></div>
-          <div class="form-group"><label>Cashier Name</label><input type="text" id="settingCashier" value="${s.cashierName || 'Admin'}"></div>
+          <div class="form-group"><label>Cashier Name</label><input type="text" id="settingCashier" value="${s.cashierName || 'Owner'}"></div>
           <div class="form-group"><label>Bill Footer Text</label><input type="text" id="settingFooter" value="${s.footerText || 'Thanks For Ordering !!'}"></div>
         </div>
       </div>
       <div class="card">
-        <div class="card-header">🔑 Admin Login Credentials</div>
+        <div class="card-header">🔑 Owner Login Credentials</div>
         <div class="settings-form">
-          <div class="form-group"><label>Admin Username</label><input type="text" id="settingAdminUser" value="${s.adminUser || 'admin'}"></div>
-          <div class="form-group"><label>Admin Password</label><input type="password" id="settingAdminPass" value="${s.adminPass || 'admin123'}"></div>
+          <div class="form-group"><label>Owner Username</label><input type="text" id="settingAdminUser" value="${s.adminUser || 'owner'}"></div>
+          <div class="form-group"><label>Owner Password</label><input type="password" id="settingAdminPass" value="${s.adminPass || 'owner123'}"></div>
           <p style="font-size:11px;color:#999;margin-top:4px;">💡 Staff credentials are managed in Settings → Staff Management</p>
         </div>
       </div>
