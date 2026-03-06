@@ -68,6 +68,15 @@ const state = {
 if (typeof state.settings.gstRate !== 'number' || ![0, 5, 12, 18, 28].includes(state.settings.gstRate)) {
     state.settings.gstRate = 5;
 }
+
+// Migrate 'admin'/'admin123' to 'owner'/'owner123' for existing users
+if (state.settings.adminUser === 'admin') {
+    state.settings.adminUser = 'owner';
+    if (state.settings.adminPass === 'admin123') {
+        state.settings.adminPass = 'owner123';
+    }
+    localStorage.setItem('kcb_settings', JSON.stringify(state.settings));
+}
 if (typeof state.settings.serviceCharge !== 'number') {
     state.settings.serviceCharge = 0;
 }
